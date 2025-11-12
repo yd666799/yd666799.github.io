@@ -1,0 +1,1973 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>大明朱雀</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind 配置 -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#165DFF',
+            secondary: '#36D399',
+            danger: '#F87272',
+            warning: '#FBBD23',
+            info: '#3ABFF8',
+            dark: '#1E293B',
+            light: '#F8FAFC'
+          },
+          fontFamily: {
+            inter: ['Inter', 'sans-serif'],
+          },
+        },
+      }
+    }
+  </script>
+  
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .transition-height {
+        transition: max-height 0.3s ease-in-out;
+      }
+      .table-shadow {
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+      }
+      .btn-effect {
+        @apply transform hover:scale-105 transition-transform duration-200;
+      }
+      .card-hover {
+        @apply hover:shadow-lg transition-shadow duration-300;
+      }
+    }
+  </style>
+</head>
+
+<body class="font-inter bg-gray-50 text-gray-800 min-h-screen flex flex-col">
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-analytics.js";
+  // 导入Firebase数据库相关函数
+  import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, query, where } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
+
+  // Your web app's Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyB40MBHZ3U6xPG_N1ulqVqeZGZnBCbSAWg",
+    authDomain: "share-notes-1b48c.firebaseapp.com",
+    projectId: "share-notes-1b48c",
+    storageBucket: "share-notes-1b48c.firebasestorage.app",
+    messagingSenderId: "99459795397",
+    appId: "1:99459795397:web:1a727e631c50f840fbe3ac",
+    measurementId: "G-09DG9T1FGB"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+  const db = getFirestore(app);
+
+  // 定义集合名称
+  const ROOT_RECORDS_COLLECTION = "rootRecords";
+  const MONTH_RECORDS_COLLECTION = "monthRecords";
+
+  // 本地存储工具类
+  const LocalStorageService = {
+    // 保存根记录到本地
+    saveRootRecords(records) {
+      localStorage.setItem('rootRecords', JSON.stringify(records));
+    },
+    
+    // 获取本地根记录
+    getRootRecords() {
+      const data = localStorage.getItem('rootRecords');
+      return data ? JSON.parse(data) : [];
+    },
+    
+    // 保存月份记录到本地
+    saveMonthRecords(month, records) {
+      const allMonths = this.getAllMonthRecords();
+      allMonths[month] = records;
+      localStorage.setItem('monthRecords', JSON.stringify(allMonths));
+    },
+    
+    // 获取指定月份的本地记录
+    getMonthRecords(month) {
+      const allMonths = this.getAllMonthRecords();
+      return allMonths[month] || [];
+    },
+    
+    // 获取所有月份的本地记录
+    getAllMonthRecords() {
+      const data = localStorage.getItem('monthRecords');
+      return data ? JSON.parse(data) : {};
+    },
+    
+    // 清除指定月份的本地记录
+    clearMonthRecords(month) {
+      const allMonths = this.getAllMonthRecords();
+      if (allMonths[month]) {
+        delete allMonths[month];
+        localStorage.setItem('monthRecords', JSON.stringify(allMonths));
+      }
+    }
+  };
+
+  // 数据读写核心函数
+
+  /**
+   * 从Firebase加载所有根记录
+   */
+  async function loadRootRecords() {
+    try {
+      const rootRecordsCol = collection(db, ROOT_RECORDS_COLLECTION);
+      const rootRecordsSnapshot = await getDocs(rootRecordsCol);
+      
+      dataStore.rootRecords = rootRecordsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      // 同步到本地存储
+      LocalStorageService.saveRootRecords(dataStore.rootRecords);
+      
+      showToast("根记录加载成功", "success");
+      return dataStore.rootRecords;
+    } catch (error) {
+      console.error("加载根记录失败，尝试从本地加载:", error);
+      // 从本地存储加载备份
+      dataStore.rootRecords = LocalStorageService.getRootRecords();
+      showToast("从本地加载根记录", "warning");
+      return dataStore.rootRecords;
+    }
+  }
+
+  /**
+   * 从Firebase加载指定月份的记录
+   * @param {string} month - 格式为YYYY-MM的月份
+   */
+  async function loadMonthRecords(month) {
+    try {
+      const monthRecordsCol = collection(db, MONTH_RECORDS_COLLECTION, month, "records");
+      const monthRecordsSnapshot = await getDocs(monthRecordsCol);
+      
+      const records = monthRecordsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      dataStore.monthRecords[month] = records;
+      // 同步到本地存储
+      LocalStorageService.saveMonthRecords(month, records);
+      
+      showToast(`${month} 记录加载成功`, "success");
+      return records;
+    } catch (error) {
+      console.error(`加载${month}记录失败，尝试从本地加载:`, error);
+      // 从本地存储加载备份
+      dataStore.monthRecords[month] = LocalStorageService.getMonthRecords(month);
+      showToast(`从本地加载${month}记录`, "warning");
+      return dataStore.monthRecords[month];
+    }
+  }
+
+  /**
+   * 添加新的根记录
+   * @param {Object} record - 要添加的记录对象
+   */
+  async function addRootRecord(record) {
+    try {
+      const docRef = await addDoc(collection(db, ROOT_RECORDS_COLLECTION), record);
+      const newRecord = { id: docRef.id, ...record };
+      dataStore.rootRecords.push(newRecord);
+      
+      // 同步到本地存储
+      LocalStorageService.saveRootRecords(dataStore.rootRecords);
+      
+      showToast("根记录添加成功", "success");
+      return newRecord;
+    } catch (error) {
+      console.error("添加根记录失败:", error);
+      showToast("添加根记录失败", "error");
+      return null;
+    }
+  }
+
+  /**
+   * 添加月份记录
+   * @param {string} month - 格式为YYYY-MM的月份
+   * @param {Object} record - 要添加的记录对象
+   */
+  async function addMonthRecord(month, record) {
+    try {
+      // 确保月份集合存在
+      const recordsCol = collection(db, MONTH_RECORDS_COLLECTION, month, "records");
+      const docRef = await addDoc(recordsCol, record);
+      
+      const newRecord = { id: docRef.id, ...record };
+      
+      // 如果该月份记录数组不存在则初始化
+      if (!dataStore.monthRecords[month]) {
+        dataStore.monthRecords[month] = [];
+      }
+      
+      dataStore.monthRecords[month].push(newRecord);
+      
+      // 同步到本地存储
+      LocalStorageService.saveMonthRecords(month, dataStore.monthRecords[month]);
+      
+      showToast("记录添加成功", "success");
+      return newRecord;
+    } catch (error) {
+      console.error(`添加${month}记录失败:`, error);
+      showToast("记录添加失败", "error");
+      return null;
+    }
+  }
+
+  /**
+   * 更新根记录
+   * @param {string} id - 记录ID
+   * @param {Object} updates - 要更新的字段
+   */
+  async function updateRootRecord(id, updates) {
+    try {
+      const docRef = doc(db, ROOT_RECORDS_COLLECTION, id);
+      await updateDoc(docRef, updates);
+      
+      // 更新本地数据
+      const index = dataStore.rootRecords.findIndex(record => record.id === id);
+      if (index !== -1) {
+        dataStore.rootRecords[index] = { ...dataStore.rootRecords[index], ...updates };
+        // 同步到本地存储
+        LocalStorageService.saveRootRecords(dataStore.rootRecords);
+      }
+      
+      showToast("根记录更新成功", "success");
+      return true;
+    } catch (error) {
+      console.error("更新根记录失败:", error);
+      showToast("根记录更新失败", "error");
+      return false;
+    }
+  }
+
+  /**
+   * 更新月份记录
+   * @param {string} month - 格式为YYYY-MM的月份
+   * @param {string} id - 记录ID
+   * @param {Object} updates - 要更新的字段
+   */
+  async function updateMonthRecord(month, id, updates) {
+    try {
+      const docRef = doc(db, MONTH_RECORDS_COLLECTION, month, "records", id);
+      await updateDoc(docRef, updates);
+      
+      // 更新本地数据
+      if (dataStore.monthRecords[month]) {
+        const index = dataStore.monthRecords[month].findIndex(record => record.id === id);
+        if (index !== -1) {
+          dataStore.monthRecords[month][index] = { ...dataStore.monthRecords[month][index], ...updates };
+          // 同步到本地存储
+          LocalStorageService.saveMonthRecords(month, dataStore.monthRecords[month]);
+        }
+      }
+      
+      showToast("记录更新成功", "success");
+      return true;
+    } catch (error) {
+      console.error(`更新${month}记录失败:`, error);
+      showToast("记录更新失败", "error");
+      return false;
+    }
+  }
+
+  /**
+   * 删除根记录
+   * @param {string} id - 记录ID
+   */
+  async function deleteRootRecord(id) {
+    try {
+      const docRef = doc(db, ROOT_RECORDS_COLLECTION, id);
+      await deleteDoc(docRef);
+      
+      // 从本地数据中移除
+      dataStore.rootRecords = dataStore.rootRecords.filter(record => record.id !== id);
+      // 同步到本地存储
+      LocalStorageService.saveRootRecords(dataStore.rootRecords);
+      
+      showToast("根记录删除成功", "success");
+      return true;
+    } catch (error) {
+      console.error("删除根记录失败:", error);
+      showToast("根记录删除失败", "error");
+      return false;
+    }
+  }
+
+  /**
+   * 删除月份记录
+   * @param {string} month - 格式为YYYY-MM的月份
+   * @param {string} id - 记录ID
+   */
+  async function deleteMonthRecord(month, id) {
+    try {
+      const docRef = doc(db, MONTH_RECORDS_COLLECTION, month, "records", id);
+      await deleteDoc(docRef);
+      
+      // 从本地数据中移除
+      if (dataStore.monthRecords[month]) {
+        dataStore.monthRecords[month] = dataStore.monthRecords[month].filter(record => record.id !== id);
+        // 同步到本地存储
+        LocalStorageService.saveMonthRecords(month, dataStore.monthRecords[month]);
+      }
+      
+      showToast("记录删除成功", "success");
+      return true;
+    } catch (error) {
+      console.error(`删除${month}记录失败:`, error);
+      showToast("记录删除失败", "error");
+      return false;
+    }
+  }
+
+  /**
+   * 批量添加月份记录
+   * @param {string} month - 格式为YYYY-MM的月份
+   * @param {Array} records - 要添加的记录数组
+   */
+  async function batchAddMonthRecords(month, records) {
+    try {
+      const recordsCol = collection(db, MONTH_RECORDS_COLLECTION, month, "records");
+      const newRecords = [];
+      
+      // 批量添加记录
+      for (const record of records) {
+        const docRef = await addDoc(recordsCol, record);
+        newRecords.push({ id: docRef.id, ...record });
+      }
+      
+      // 更新本地数据
+      if (!dataStore.monthRecords[month]) {
+        dataStore.monthRecords[month] = [];
+      }
+      dataStore.monthRecords[month].push(...newRecords);
+      
+      // 同步到本地存储
+      LocalStorageService.saveMonthRecords(month, dataStore.monthRecords[month]);
+      
+      showToast(`成功导入 ${newRecords.length} 条记录`, "success");
+      return newRecords;
+    } catch (error) {
+      console.error(`批量添加${month}记录失败:`, error);
+      showToast("批量导入失败", "error");
+      return [];
+    }
+  }
+
+  // 修改原有的loadData函数，从Firebase加载数据而非本地存储
+  async function loadData() {
+    // 先加载根记录
+    await loadRootRecords();
+    
+    // 加载当前月份的记录
+    await loadMonthRecords(dataStore.currentMonth);
+    
+    // 初始化页面数据显示
+    renderRecords();
+    updateStatistics();
+  }
+
+  // 修改记录表单提交处理，使用Firebase保存数据
+  elements.recordForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const recordData = {
+      name: elements.nameInput.value.trim(),
+      tag: elements.tagInput.value.trim(),
+      position: elements.positionSelect.value,
+      evaluation: elements.evaluationSelect.value,
+      prosperity: elements.prosperityInput.value ? Number(elements.prosperityInput.value) : 0,
+      maxTrophies: elements.maxTrophiesInput.value ? Number(elements.maxTrophiesInput.value) : 0,
+      joinDate: elements.joinDateInput.value,
+      daysInClan: elements.daysInClanInput.value ? Number(elements.daysInClanInput.value) : 0,
+      leagueTotal: elements.leagueTotalInput.value ? Number(elements.leagueTotalInput.value) : 0,
+      leagueActual: elements.leagueActualInput.value ? Number(elements.leagueActualInput.value) : 0,
+      stars: elements.starsInput.value ? Number(elements.starsInput.value) : 0,
+      destructionRate: elements.destructionRateInput.value ? Number(elements.destructionRateInput.value) : 0,
+      score: elements.scoreInput.value ? Number(elements.scoreInput.value) : 0,
+      inClan: elements.inClanSelect.value,
+      updatedAt: new Date().toISOString()
+    };
+    
+    const recordId = elements.recordId.value;
+    const month = elements.recordMonth.value || dataStore.currentMonth;
+    
+    if (recordId) {
+      // 更新现有记录
+      await updateMonthRecord(month, recordId, recordData);
+    } else {
+      // 添加新记录
+      await addMonthRecord(month, recordData);
+    }
+    
+    // 重新渲染记录列表
+    renderRecords();
+    updateStatistics();
+    
+    // 关闭模态框
+    elements.recordModal.classList.add('hidden');
+    elements.recordForm.reset();
+    elements.recordId.value = '';
+  });
+
+  // 修改从根记录复制功能，使用Firebase数据
+  elements.confirmCopyBtn.addEventListener('click', async function() {
+    const selectedItems = elements.rootRecordsList.querySelectorAll('input[type="checkbox"]:checked');
+    if (selectedItems.length === 0) {
+      showToast("请选择要复制的成员", "warning");
+      return;
+    }
+    
+    const month = dataStore.currentMonth;
+    const recordsToAdd = [];
+    
+    // 收集要复制的记录
+    selectedItems.forEach(item => {
+      const recordId = item.value;
+      const record = dataStore.rootRecords.find(r => r.id === recordId);
+      
+      if (record) {
+        // 创建新记录，不包含原ID
+        const { id, ...recordData } = record;
+        recordsToAdd.push({
+          ...recordData,
+          copiedFromRoot: true,
+          copiedAt: new Date().toISOString()
+        });
+      }
+    });
+    
+    // 批量添加到当前月份
+    await batchAddMonthRecords(month, recordsToAdd);
+    
+    // 刷新显示
+    renderRecords();
+    updateStatistics();
+    
+    // 关闭模态框
+    elements.copyRootModal.classList.add('hidden');
+  });
+
+  // 添加删除选中记录功能
+  elements.confirmDeleteBtn.addEventListener('click', async function() {
+    const month = dataStore.currentMonth;
+    const selectedIds = Array.from(dataStore.selectedRecords);
+    
+    if (selectedIds.length === 0) {
+      elements.deleteModal.classList.add('hidden');
+      return;
+    }
+    
+    // 批量删除记录
+    for (const id of selectedIds) {
+      await deleteMonthRecord(month, id);
+    }
+    
+    // 清空选中状态
+    dataStore.selectedRecords.clear();
+    elements.selectAllCheckbox.checked = false;
+    
+    // 刷新显示
+    renderRecords();
+    updateStatistics();
+    updateExportButtonState();
+    
+    // 关闭模态框
+    elements.deleteModal.classList.add('hidden');
+  });
+
+  // 修改导入功能，使用Firebase保存
+  elements.confirmImportBtn.addEventListener('click', async function() {
+    const file = elements.importFileInput.files[0];
+    if (!file) return;
+    
+    const month = dataStore.currentMonth;
+    const reader = new FileReader();
+    
+    reader.onload = async function(e) {
+      try {
+        let records;
+        const fileExtension = file.name.split('.').pop().toLowerCase();
+        
+        if (fileExtension === 'json') {
+          records = JSON.parse(e.target.result);
+        } else if (fileExtension === 'csv') {
+          // 简单的CSV解析，实际应用可能需要更复杂的解析
+          records = csvToJson(e.target.result);
+        } else {
+          showToast("不支持的文件格式", "error");
+          return;
+        }
+        
+        if (Array.isArray(records) && records.length > 0) {
+          await batchAddMonthRecords(month, records);
+          renderRecords();
+          updateStatistics();
+        } else {
+          showToast("文件中没有有效的记录数据", "error");
+        }
+      } catch (error) {
+        console.error("导入失败:", error);
+        showToast("导入失败: " + error.message, "error");
+      } finally {
+        // 重置导入表单
+        elements.importFileInput.value = '';
+        elements.fileInfo.classList.add('hidden');
+        elements.confirmImportBtn.disabled = true;
+        elements.importModal.classList.add('hidden');
+      }
+    };
+    
+    if (file.type.includes('json') || fileExtension === 'json') {
+      reader.readAsText(file);
+    } else if (file.type.includes('csv') || fileExtension === 'csv' || fileExtension === 'txt') {
+      reader.readAsText(file);
+    }
+  });
+</script>
+  <!-- 登录页面 -->
+  <div id="login-page" class="flex-grow flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white rounded-xl shadow-xl p-8">
+      <div class="text-center mb-8">
+        <h1 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-primary mb-2">大明朱雀</h1>
+        <p class="text-gray-500">管理员</p>
+      </div>
+      
+      <div class="space-y-6">
+        <div>
+          <label for="password" class="block text-sm font-medium text-gray-700 mb-1">输入密钥</label>
+          <div class="relative">
+            <input 
+              type="text" 
+              id="password" 
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none"
+              placeholder="大明朱雀#2QQGGU888"
+              autocomplete="off"
+            >
+            <button id="toggle-help" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary">
+              <i class="fa fa-question-circle"></i>
+            </button>
+          </div>
+          <p id="password-error" class="mt-1 text-danger text-sm hidden">密码错误，请重新输入</p>
+        </div>
+        
+        <div id="help-text" class="bg-blue-50 p-4 rounded-lg text-sm text-blue-800 hidden">
+          <p class="font-medium mb-2">密码规则：</p>
+          <ul class="list-disc list-inside space-y-1">
+            <li>使用数字0-9和操作符a、b、c、d组成</li>
+            <li>必须为7</li>
+            <li>不能直接输入7</li>
+            <li>大明朱雀#2QQGGU888</li>
+          </ul>
+        </div>
+        
+        <button 
+          id="login-btn" 
+          class="w-full bg-primary hover:bg-primary/90 text-white font-medium py-2 px-4 rounded-lg transition-colors btn-effect"
+        >
+          登录系统
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 主应用页面 -->
+  <div id="app" class="hidden flex flex-col min-h-screen">
+    <!-- 顶部导航 -->
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+      <div class="container mx-auto px-4 py-3 flex flex-wrap items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <i class="fa fa-bar-chart text-primary text-2xl"></i>
+          <h1 class="text-xl font-bold text-gray-800">朱雀</h1>
+        </div>
+        
+        <div class="flex items-center space-x-4 mt-2 sm:mt-0">
+          <div class="flex items-center space-x-2">
+            <span id="current-month-display" class="text-sm font-medium"></span>
+            <select id="month-selector" class="text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary">
+              <!-- 动态生成月份选项 -->
+            </select>
+          </div>
+          
+          <button id="switch-view" class="p-2 rounded-full hover:bg-gray-100 transition-colors" title="切换视图">
+            <i class="fa fa-th-large text-gray-600"></i>
+          </button>
+          
+          <button id="logout-btn" class="text-sm text-gray-600 hover:text-danger transition-colors">
+            <i class="fa fa-sign-out mr-1"></i> 退出
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- 主要内容区 -->
+    <main class="flex-grow container mx-auto px-4 py-6">
+      <!-- 控制区 -->
+      <div class="bg-white rounded-xl shadow-sm p-4 mb-6">
+        <div class="flex flex-wrap gap-4 items-center justify-between">
+          <div class="flex flex-wrap gap-3">
+            <button id="add-record" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg flex items-center btn-effect">
+              <i class="fa fa-plus mr-2"></i> 添加记录
+            </button>
+            
+            <div class="relative">
+              <button id="import-btn" class="bg-secondary hover:bg-secondary/90 text-white px-4 py-2 rounded-lg flex items-center btn-effect">
+                <i class="fa fa-upload mr-2"></i> 导入
+              </button>
+              <div id="import-dropdown" class="absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 hidden z-10">
+                <button id="import-single" class="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm">
+                  <i class="fa fa-file-text-o mr-2"></i>单个导入
+                </button>
+                <button id="import-batch" class="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm">
+                  <i class="fa fa-files-o mr-2"></i>批量导入
+                </button>
+              </div>
+            </div>
+            
+            <div class="relative">
+              <button id="export-btn" class="bg-info hover:bg-info/90 text-white px-4 py-2 rounded-lg flex items-center btn-effect" disabled>
+                <i class="fa fa-download mr-2"></i> 导出
+              </button>
+            </div>
+            
+            <button id="copy-root-btn" class="bg-warning hover:bg-warning/90 text-white px-4 py-2 rounded-lg flex items-center btn-effect">
+              <i class="fa fa-copy mr-2"></i> 从根记录复制
+            </button>
+          </div>
+          
+          <div class="flex flex-wrap gap-3 items-center">
+            <div class="relative">
+              <input 
+                type="text" 
+                id="search-input" 
+                placeholder="搜索成员..." 
+                class="pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none text-sm"
+              >
+              <i class="fa fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+            </div>
+            
+            <button id="delete-selected-btn" class="bg-danger hover:bg-danger/90 text-white px-4 py-2 rounded-lg flex items-center btn-effect" disabled>
+              <i class="fa fa-trash mr-2"></i> 删除选中
+              <span id="selected-count" class="ml-1 bg-white text-danger text-xs rounded-full h-5 w-5 flex items-center justify-center">0</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 统计卡片区域 -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-xl shadow-sm p-5 card-hover">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-gray-500 text-sm">总成员数</p>
+              <h3 id="total-members" class="text-2xl font-bold mt-1">0</h3>
+            </div>
+            <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <i class="fa fa-users text-primary text-xl"></i>
+            </div>
+          </div>
+          <div class="mt-4 text-xs text-gray-500">
+            <span>较上月</span>
+            <span id="members-change" class="ml-1 text-secondary"><i class="fa fa-arrow-up"></i> 0</span>
+          </div>
+        </div>
+        
+        <div class="bg-white rounded-xl shadow-sm p-5 card-hover">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-gray-500 text-sm">平均活跃度</p>
+              <h3 id="avg-prosperity" class="text-2xl font-bold mt-1">0</h3>
+            </div>
+            <div class="w-12 h-12 rounded-full bg-secondary/10 flex items-center justify-center">
+              <i class="fa fa-bolt text-secondary text-xl"></i>
+            </div>
+          </div>
+          <div class="mt-4 text-xs text-gray-500">
+            <span>较上月</span>
+            <span id="prosperity-change" class="ml-1 text-secondary"><i class="fa fa-arrow-up"></i> 0%</span>
+          </div>
+        </div>
+        
+        <div class="bg-white rounded-xl shadow-sm p-5 card-hover">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-gray-500 text-sm">总奖杯数</p>
+              <h3 id="total-trophies" class="text-2xl font-bold mt-1">0</h3>
+            </div>
+            <div class="w-12 h-12 rounded-full bg-warning/10 flex items-center justify-center">
+              <i class="fa fa-trophy text-warning text-xl"></i>
+            </div>
+          </div>
+          <div class="mt-4 text-xs text-gray-500">
+            <span>较上月</span>
+            <span id="trophies-change" class="ml-1 text-secondary"><i class="fa fa-arrow-up"></i> 0</span>
+          </div>
+        </div>
+        
+        <div class="bg-white rounded-xl shadow-sm p-5 card-hover">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-gray-500 text-sm">联赛完成率</p>
+              <h3 id="league-completion" class="text-2xl font-bold mt-1">0%</h3>
+            </div>
+            <div class="w-12 h-12 rounded-full bg-info/10 flex items-center justify-center">
+              <i class="fa fa-check-circle text-info text-xl"></i>
+            </div>
+          </div>
+          <div class="mt-4 text-xs text-gray-500">
+            <span>较上月</span>
+            <span id="completion-change" class="ml-1 text-danger"><i class="fa fa-arrow-down"></i> 0%</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 图表区域 -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div class="bg-white rounded-xl shadow-sm p-5 card-hover">
+          <h3 class="text-lg font-semibold mb-4">活跃度分布</h3>
+          <div class="h-64">
+            <canvas id="prosperity-chart"></canvas>
+          </div>
+        </div>
+        
+        <div class="bg-white rounded-xl shadow-sm p-5 card-hover">
+          <h3 class="text-lg font-semibold mb-4">奖杯数排名</h3>
+          <div class="h-64">
+            <canvas id="trophies-chart"></canvas>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 记录列表 -->
+      <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-gray-100">
+          <h2 class="text-lg font-semibold">成员记录</h2>
+        </div>
+        
+        <div class="overflow-x-auto">
+          <table class="w-full table-shadow">
+            <thead>
+              <tr class="bg-gray-50 text-left">
+                <th class="px-4 py-3 w-12">
+                  <input type="checkbox" id="select-all" class="rounded text-primary focus:ring-primary">
+                </th>
+                <th class="px-4 py-3">成员名称</th>
+                <th class="px-4 py-3">标签</th>
+                <th class="px-4 py-3">职位</th>
+                <th class="px-4 py-3">活跃度</th>
+                <th class="px-4 py-3">最高奖杯</th>
+                <th class="px-4 py-3">联赛完成</th>
+                <th class="px-4 py-3">评分</th>
+                <th class="px-4 py-3">状态</th>
+                <th class="px-4 py-3 w-24">操作</th>
+              </tr>
+            </thead>
+            <tbody id="records-table-body">
+              <!-- 记录将通过JavaScript动态生成 -->
+              <tr>
+                <td colspan="10" class="px-4 py-8 text-center text-gray-500">
+                  <i class="fa fa-folder-open-o text-3xl mb-2 block"></i>
+                  暂无记录数据
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <!-- 分页控制 -->
+        <div class="p-4 border-t border-gray-100 flex flex-wrap items-center justify-between gap-4">
+          <div class="text-sm text-gray-500">
+            显示 <span id="showing-range">0-0</span> 条，共 <span id="total-records">0</span> 条
+          </div>
+          
+          <div class="flex items-center space-x-2">
+            <button id="prev-page" class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+              <i class="fa fa-chevron-left text-sm"></i>
+            </button>
+            <div id="pagination-numbers" class="flex items-center">
+              <button class="w-8 h-8 flex items-center justify-center rounded bg-primary text-white">1</button>
+            </div>
+            <button id="next-page" class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+              <i class="fa fa-chevron-right text-sm"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+    
+    <!-- 页脚 -->
+    <footer class="bg-white border-t border-gray-200 py-4 mt-6">
+      <div class="container mx-auto px-4 text-center text-sm text-gray-500">
+        <p>© 2023 大明朱雀管理系统 | 版本 1.0.0</p>
+      </div>
+    </footer>
+  </div>
+  
+  <!-- 记录表单模态框 -->
+  <div id="record-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div class="p-5 border-b border-gray-100 flex justify-between items-center">
+        <h3 id="modal-title" class="text-lg font-semibold">添加成员记录</h3>
+        <button id="close-modal" class="text-gray-400 hover:text-gray-600">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+      
+      <form id="record-form" class="p-5 space-y-4">
+        <input type="hidden" id="record-id">
+        <input type="hidden" id="record-month">
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label for="name-input" class="block text-sm font-medium text-gray-700 mb-1">成员名称 <span class="text-danger">*</span></label>
+            <input type="text" id="name-input" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none" required>
+          </div>
+          
+          <div>
+            <label for="tag-input" class="block text-sm font-medium text-gray-700 mb-1">标签</label>
+            <input type="text" id="tag-input" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none">
+          </div>
+          
+          <div>
+            <label for="position-select" class="block text-sm font-medium text-gray-700 mb-1">职位 <span class="text-danger">*</span></label>
+            <select id="position-select" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none" required>
+              <option value="">请选择职位</option>
+              <option value="首领">首领</option>
+              <option value="副首领">副首领</option>
+              <option value="长老">长老</option>
+              <option value="成员">成员</option>
+            </select>
+          </div>
+          
+          <div>
+            <label for="evaluation-select" class="block text-sm font-medium text-gray-700 mb-1">评价</label>
+            <select id="evaluation-select" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none">
+              <option value="">请选择评价</option>
+              <option value="优秀">优秀</option>
+              <option value="良好">良好</option>
+              <option value="一般">一般</option>
+              <option value="待改进">待改进</option>
+            </select>
+          </div>
+          
+          <div>
+            <label for="prosperity-input" class="block text-sm font-medium text-gray-700 mb-1">活跃度 <span class="text-danger">*</span></label>
+            <input type="number" id="prosperity-input" min="0" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none" required>
+          </div>
+          
+          <div>
+            <label for="maxTrophies-input" class="block text-sm font-medium text-gray-700 mb-1">最高奖杯 <span class="text-danger">*</span></label>
+            <input type="number" id="maxTrophies-input" min="0" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none" required>
+          </div>
+          
+          <div>
+            <label for="joinDate-input" class="block text-sm font-medium text-gray-700 mb-1">加入日期</label>
+            <input type="date" id="joinDate-input" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none">
+          </div>
+          
+          <div>
+            <label for="daysInClan-input" class="block text-sm font-medium text-gray-700 mb-1">在部落天数</label>
+            <input type="number" id="daysInClan-input" min="0" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none">
+          </div>
+          
+          <div>
+            <label for="leagueTotal-input" class="block text-sm font-medium text-gray-700 mb-1">联赛总次数</label>
+            <input type="number" id="leagueTotal-input" min="0" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none">
+          </div>
+          
+          <div>
+            <label for="leagueActual-input" class="block text-sm font-medium text-gray-700 mb-1">联赛实际参与</label>
+            <input type="number" id="leagueActual-input" min="0" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none">
+          </div>
+          
+          <div>
+            <label for="stars-input" class="block text-sm font-medium text-gray-700 mb-1">星星数</label>
+            <input type="number" id="stars-input" min="0" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none">
+          </div>
+          
+          <div>
+            <label for="destructionRate-input" class="block text-sm font-medium text-gray-700 mb-1">摧毁率(%)</label>
+            <input type="number" id="destructionRate-input" min="0" max="100" step="0.1" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none">
+          </div>
+          
+          <div>
+            <label for="score-input" class="block text-sm font-medium text-gray-700 mb-1">综合评分</label>
+            <input type="number" id="score-input" min="0" max="100" step="0.5" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none">
+          </div>
+          
+          <div>
+            <label for="inClan-select" class="block text-sm font-medium text-gray-700 mb-1">是否在部落 <span class="text-danger">*</span></label>
+            <select id="inClan-select" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none" required>
+              <option value="是">是</option>
+              <option value="否">否</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="flex justify-end space-x-3 pt-4 border-t border-gray-100">
+          <button type="button" id="cancel-form" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">取消</button>
+          <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors btn-effect">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  
+  <!-- 从根记录复制模态框 -->
+  <div id="copy-root-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div class="p-5 border-b border-gray-100 flex justify-between items-center">
+        <h3 class="text-lg font-semibold">从根记录复制成员</h3>
+        <button id="close-copy-root-modal" class="text-gray-400 hover:text-gray-600">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+      
+      <div class="p-5">
+        <p class="text-sm text-gray-500 mb-4">选择要复制到当前月份的根记录成员：</p>
+        
+        <div id="root-records-list" class="space-y-2 max-h-[50vh] overflow-y-auto pr-2">
+          <!-- 根记录将通过JavaScript动态生成 -->
+          <div class="text-center text-gray-500 py-8">
+            <i class="fa fa-database text-2xl mb-2 block"></i>
+            暂无根记录数据
+          </div>
+        </div>
+      </div>
+      
+      <div class="p-5 border-t border-gray-100 flex justify-end space-x-3">
+        <button id="cancel-copy-root" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">取消</button>
+        <button id="confirm-copy-btn" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors btn-effect">确认复制</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 删除确认模态框 -->
+  <div id="delete-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
+      <div class="p-5 border-b border-gray-100">
+        <h3 class="text-lg font-semibold">确认删除</h3>
+      </div>
+      
+      <div class="p-5">
+        <div class="flex items-start mb-4">
+          <div class="flex-shrink-0 mt-0.5">
+            <i class="fa fa-exclamation-triangle text-warning text-xl"></i>
+          </div>
+          <div class="ml-3">
+            <p class="text-gray-700">你确定要删除选中的 <span id="delete-count" class="font-semibold">0</span> 条记录吗？</p>
+            <p class="text-sm text-gray-500 mt-1">此操作不可撤销，删除后数据将永久丢失。</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="p-5 border-t border-gray-100 flex justify-end space-x-3">
+        <button id="cancel-delete" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">取消</button>
+        <button id="confirm-delete-btn" class="px-4 py-2 bg-danger text-white rounded-lg hover:bg-danger/90 transition-colors btn-effect">确认删除</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 导入模态框 -->
+  <div id="import-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
+      <div class="p-5 border-b border-gray-100 flex justify-between items-center">
+        <h3 class="text-lg font-semibold">导入记录</h3>
+        <button id="close-import-modal" class="text-gray-400 hover:text-gray-600">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+      
+      <div class="p-5">
+        <p class="text-sm text-gray-500 mb-4">支持导入JSON或CSV格式的记录文件：</p>
+        
+        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer" id="file-drop-area">
+          <i class="fa fa-cloud-upload text-3xl text-gray-400 mb-2"></i>
+          <p class="text-sm text-gray-500">拖放文件到此处或 <span class="text-primary font-medium">选择文件</span></p>
+          <input type="file" id="import-file-input" class="hidden" accept=".json,.csv,.txt">
+        </div>
+        
+        <div id="file-info" class="mt-4 p-3 bg-gray-50 rounded-lg hidden">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center">
+              <i class="fa fa-file-text-o text-gray-500 mr-2"></i>
+              <span id="file-name" class="text-sm truncate max-w-[250px]"></span>
+            </div>
+            <button id="remove-file" class="text-gray-400 hover:text-danger">
+              <i class="fa fa-times"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="p-5 border-t border-gray-100 flex justify-end space-x-3">
+        <button id="cancel-import" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">取消</button>
+        <button id="confirm-import-btn" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors btn-effect" disabled>确认导入</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 提示框容器 -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
+
+  <script>
+    // 页面元素引用
+    const elements = {
+      // 页面容器
+      loginPage: document.getElementById('login-page'),
+      app: document.getElementById('app'),
+      
+      // 登录相关
+      passwordInput: document.getElementById('password'),
+      passwordError: document.getElementById('password-error'),
+      loginBtn: document.getElementById('login-btn'),
+      toggleHelp: document.getElementById('toggle-help'),
+      helpText: document.getElementById('help-text'),
+      logoutBtn: document.getElementById('logout-btn'),
+      
+      // 导航和月份选择
+      currentMonthDisplay: document.getElementById('current-month-display'),
+      monthSelector: document.getElementById('month-selector'),
+      switchViewBtn: document.getElementById('switch-view'),
+      
+      // 控制按钮
+      addRecordBtn: document.getElementById('add-record'),
+      importBtn: document.getElementById('import-btn'),
+      importDropdown: document.getElementById('import-dropdown'),
+      importSingleBtn: document.getElementById('import-single'),
+      importBatchBtn: document.getElementById('import-batch'),
+      exportBtn: document.getElementById('export-btn'),
+      copyRootBtn: document.getElementById('copy-root-btn'),
+      searchInput: document.getElementById('search-input'),
+      deleteSelectedBtn: document.getElementById('delete-selected-btn'),
+      selectedCount: document.getElementById('selected-count'),
+      
+      // 统计数据
+      totalMembers: document.getElementById('total-members'),
+      avgProsperity: document.getElementById('avg-prosperity'),
+      totalTrophies: document.getElementById('total-trophies'),
+      leagueCompletion: document.getElementById('league-completion'),
+      membersChange: document.getElementById('members-change'),
+      prosperityChange: document.getElementById('prosperity-change'),
+      trophiesChange: document.getElementById('trophies-change'),
+      completionChange: document.getElementById('completion-change'),
+      
+      // 记录表格
+      recordsTableBody: document.getElementById('records-table-body'),
+      selectAllCheckbox: document.getElementById('select-all'),
+      showingRange: document.getElementById('showing-range'),
+      totalRecords: document.getElementById('total-records'),
+      prevPageBtn: document.getElementById('prev-page'),
+      nextPageBtn: document.getElementById('next-page'),
+      paginationNumbers: document.getElementById('pagination-numbers'),
+      
+      // 记录表单模态框
+      recordModal: document.getElementById('record-modal'),
+      modalTitle: document.getElementById('modal-title'),
+      closeModalBtn: document.getElementById('close-modal'),
+      cancelFormBtn: document.getElementById('cancel-form'),
+      recordForm: document.getElementById('record-form'),
+      recordId: document.getElementById('record-id'),
+      recordMonth: document.getElementById('record-month'),
+      
+      // 表单输入
+      nameInput: document.getElementById('name-input'),
+      tagInput: document.getElementById('tag-input'),
+      positionSelect: document.getElementById('position-select'),
+      evaluationSelect: document.getElementById('evaluation-select'),
+      prosperityInput: document.getElementById('prosperity-input'),
+      maxTrophiesInput: document.getElementById('maxTrophies-input'),
+      joinDateInput: document.getElementById('joinDate-input'),
+      daysInClanInput: document.getElementById('daysInClan-input'),
+      leagueTotalInput: document.getElementById('leagueTotal-input'),
+      leagueActualInput: document.getElementById('leagueActual-input'),
+      starsInput: document.getElementById('stars-input'),
+      destructionRateInput: document.getElementById('destructionRate-input'),
+      scoreInput: document.getElementById('score-input'),
+      inClanSelect: document.getElementById('inClan-select'),
+      
+      // 从根记录复制模态框
+      copyRootModal: document.getElementById('copy-root-modal'),
+      closeCopyRootModal: document.getElementById('close-copy-root-modal'),
+      cancelCopyRootBtn: document.getElementById('cancel-copy-root'),
+      confirmCopyBtn: document.getElementById('confirm-copy-btn'),
+      rootRecordsList: document.getElementById('root-records-list'),
+      
+      // 删除确认模态框
+      deleteModal: document.getElementById('delete-modal'),
+      closeDeleteModalBtn: document.getElementById('cancel-delete'),
+      confirmDeleteBtn: document.getElementById('confirm-delete-btn'),
+      deleteCount: document.getElementById('delete-count'),
+      
+      // 导入模态框
+      importModal: document.getElementById('import-modal'),
+      closeImportModalBtn: document.getElementById('close-import-modal'),
+      cancelImportBtn: document.getElementById('cancel-import'),
+      confirmImportBtn: document.getElementById('confirm-import-btn'),
+      fileDropArea: document.getElementById('file-drop-area'),
+      importFileInput: document.getElementById('import-file-input'),
+      fileInfo: document.getElementById('file-info'),
+      fileName: document.getElementById('file-name'),
+      removeFileBtn: document.getElementById('remove-file'),
+      
+      // 提示框
+      toastContainer: document.getElementById('toast-container')
+    };
+
+    // 应用数据存储
+    const dataStore = {
+      currentMonth: '',
+      rootRecords: [],
+      monthRecords: {},
+      selectedRecords: new Set(),
+      currentPage: 1,
+      recordsPerPage: 10,
+      filteredRecords: [],
+      viewMode: 'table' // table 或 card
+    };
+
+    // 初始化应用
+    function initApp() {
+      // 设置当前月份
+      const now = new Date();
+      dataStore.currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      elements.currentMonthDisplay.textContent = dataStore.currentMonth;
+      
+      // 生成月份选项（过去12个月+当前月+未来3个月）
+      generateMonthOptions();
+      
+      // 绑定事件监听器
+      bindEventListeners();
+      
+      // 检查登录状态
+      checkLoginStatus();
+    }
+
+    // 生成月份选项
+    function generateMonthOptions() {
+      const now = new Date();
+      elements.monthSelector.innerHTML = '';
+      
+      // 生成过去12个月、当前月和未来3个月的选项
+      for (let i = -12; i <= 3; i++) {
+        const date = new Date(now.getFullYear(), now.getMonth() + i, 1);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const monthStr = `${year}-${month}`;
+        
+        const option = document.createElement('option');
+        option.value = monthStr;
+        option.textContent = monthStr;
+        
+        if (monthStr === dataStore.currentMonth) {
+          option.selected = true;
+        }
+        
+        elements.monthSelector.appendChild(option);
+      }
+    }
+
+    // 绑定事件监听器
+    function bindEventListeners() {
+      // 登录相关
+      elements.loginBtn.addEventListener('click', handleLogin);
+      elements.passwordInput.addEventListener('keypress', (e) => e.key === 'Enter' && handleLogin());
+      elements.toggleHelp.addEventListener('click', () => elements.helpText.classList.toggle('hidden'));
+      elements.logoutBtn.addEventListener('click', handleLogout);
+      
+      // 月份选择
+      elements.monthSelector.addEventListener('change', async (e) => {
+        dataStore.currentMonth = e.target.value;
+        elements.currentMonthDisplay.textContent = dataStore.currentMonth;
+        await loadMonthRecords(dataStore.currentMonth);
+        renderRecords();
+        updateStatistics();
+      });
+      
+      // 视图切换
+      elements.switchViewBtn.addEventListener('click', toggleViewMode);
+      
+      // 控制按钮
+      elements.addRecordBtn.addEventListener('click', () => openRecordModal());
+      elements.importBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        elements.importDropdown.classList.toggle('hidden');
+      });
+      elements.importSingleBtn.addEventListener('click', () => {
+        elements.importDropdown.classList.add('hidden');
+        openImportModal();
+      });
+      elements.importBatchBtn.addEventListener('click', () => {
+        elements.importDropdown.classList.add('hidden');
+        openImportModal();
+      });
+      elements.exportBtn.addEventListener('click', exportRecords);
+      elements.copyRootBtn.addEventListener('click', openCopyRootModal);
+      elements.searchInput.addEventListener('input', debounce(() => {
+        dataStore.currentPage = 1;
+        renderRecords();
+      }, 300));
+      
+      // 点击其他地方关闭导入下拉菜单
+      document.addEventListener('click', (e) => {
+        if (!elements.importBtn.contains(e.target) && !elements.importDropdown.contains(e.target)) {
+          elements.importDropdown.classList.add('hidden');
+        }
+      });
+      
+      // 记录表格选择
+      elements.selectAllCheckbox.addEventListener('change', handleSelectAll);
+      
+      // 分页控制
+      elements.prevPageBtn.addEventListener('click', () => changePage(dataStore.currentPage - 1));
+      elements.nextPageBtn.addEventListener('click', () => changePage(dataStore.currentPage + 1));
+      
+      // 记录表单模态框
+      elements.closeModalBtn.addEventListener('click', closeRecordModal);
+      elements.cancelFormBtn.addEventListener('click', closeRecordModal);
+      
+      // 从根记录复制模态框
+      elements.closeCopyRootModal.addEventListener('click', closeCopyRootModal);
+      elements.cancelCopyRootBtn.addEventListener('click', closeCopyRootModal);
+      
+      // 删除确认模态框
+      elements.closeDeleteModalBtn.addEventListener('click', closeDeleteModal);
+      
+      // 导入模态框
+      elements.closeImportModalBtn.addEventListener('click', closeImportModal);
+      elements.cancelImportBtn.addEventListener('click', closeImportModal);
+      elements.fileDropArea.addEventListener('click', () => elements.importFileInput.click());
+      elements.importFileInput.addEventListener('change', handleFileSelection);
+      elements.removeFileBtn.addEventListener('click', clearFileSelection);
+      
+      // 拖放文件处理
+      elements.fileDropArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        elements.fileDropArea.classList.add('border-primary');
+      });
+      
+      elements.fileDropArea.addEventListener('dragleave', () => {
+        elements.fileDropArea.classList.remove('border-primary');
+      });
+      
+      elements.fileDropArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        elements.fileDropArea.classList.remove('border-primary');
+        
+        if (e.dataTransfer.files.length) {
+          elements.importFileInput.files = e.dataTransfer.files;
+          handleFileSelection();
+        }
+      });
+    }
+
+    // 登录处理
+    function handleLogin() {
+      const password = elements.passwordInput.value.trim();
+      // 实际应用中应该使用加密和后端验证
+      if (password === '大明朱雀#2QQGGU888') {
+        elements.passwordError.classList.add('hidden');
+        localStorage.setItem('isLoggedIn', 'true');
+        showApp();
+      } else {
+        elements.passwordError.classList.remove('hidden');
+        elements.passwordInput.focus();
+      }
+    }
+
+    // 登出处理
+    function handleLogout() {
+      localStorage.removeItem('isLoggedIn');
+      showLoginPage();
+    }
+
+    // 检查登录状态
+    function checkLoginStatus() {
+      if (localStorage.getItem('isLoggedIn') === 'true') {
+        showApp();
+      } else {
+        showLoginPage();
+      }
+    }
+
+    // 显示应用页面
+    function showApp() {
+      elements.loginPage.classList.add('hidden');
+      elements.app.classList.remove('hidden');
+      loadData();
+    }
+
+    // 显示登录页面
+    function showLoginPage() {
+      elements.app.classList.add('hidden');
+      elements.loginPage.classList.remove('hidden');
+      elements.passwordInput.value = '';
+      elements.passwordInput.focus();
+    }
+
+    // 切换视图模式（表格/卡片）
+    function toggleViewMode() {
+      dataStore.viewMode = dataStore.viewMode === 'table' ? 'card' : 'table';
+      elements.switchViewBtn.innerHTML = dataStore.viewMode === 'table' 
+        ? '<i class="fa fa-th-large text-gray-600"></i>' 
+        : '<i class="fa fa-list text-gray-600"></i>';
+      renderRecords();
+    }
+
+    // 打开记录模态框
+    function openRecordModal(record = null) {
+      if (record) {
+        elements.modalTitle.textContent = '编辑成员记录';
+        elements.recordId.value = record.id;
+        elements.recordMonth.value = record.month || dataStore.currentMonth;
+        elements.nameInput.value = record.name || '';
+        elements.tagInput.value = record.tag || '';
+        elements.positionSelect.value = record.position || '';
+        elements.evaluationSelect.value = record.evaluation || '';
+        elements.prosperityInput.value = record.prosperity || 0;
+        elements.maxTrophiesInput.value = record.maxTrophies || 0;
+        elements.joinDateInput.value = record.joinDate || '';
+        elements.daysInClanInput.value = record.daysInClan || 0;
+        elements.leagueTotalInput.value = record.leagueTotal || 0;
+        elements.leagueActualInput.value = record.leagueActual || 0;
+        elements.starsInput.value = record.stars || 0;
+        elements.destructionRateInput.value = record.destructionRate || 0;
+        elements.scoreInput.value = record.score || 0;
+        elements.inClanSelect.value = record.inClan || '是';
+      } else {
+        elements.modalTitle.textContent = '添加成员记录';
+        elements.recordForm.reset();
+        elements.recordId.value = '';
+        elements.recordMonth.value = dataStore.currentMonth;
+      }
+      
+      elements.recordModal.classList.remove('hidden');
+      elements.nameInput.focus();
+    }
+
+    // 关闭记录模态框
+    function closeRecordModal() {
+      elements.recordModal.classList.add('hidden');
+    }
+
+    // 打开从根记录复制模态框
+    function openCopyRootModal() {
+      renderRootRecordsList();
+      elements.copyRootModal.classList.remove('hidden');
+    }
+
+    // 关闭从根记录复制模态框
+    function closeCopyRootModal() {
+      elements.copyRootModal.classList.add('hidden');
+    }
+
+    // 打开删除确认模态框
+    function openDeleteModal() {
+      elements.deleteCount.textContent = dataStore.selectedRecords.size;
+      elements.deleteModal.classList.remove('hidden');
+    }
+
+    // 关闭删除确认模态框
+    function closeDeleteModal() {
+      elements.deleteModal.classList.add('hidden');
+    }
+
+    // 打开导入模态框
+    function openImportModal() {
+      clearFileSelection();
+      elements.importModal.classList.remove('hidden');
+    }
+
+    // 关闭导入模态框
+    function closeImportModal() {
+      elements.importModal.classList.add('hidden');
+    }
+
+    // 处理文件选择
+    function handleFileSelection() {
+      const file = elements.importFileInput.files[0];
+      if (file) {
+        elements.fileName.textContent = file.name;
+        elements.fileInfo.classList.remove('hidden');
+        elements.confirmImportBtn.disabled = false;
+      } else {
+        clearFileSelection();
+      }
+    }
+
+    // 清除文件选择
+    function clearFileSelection() {
+      elements.importFileInput.value = '';
+      elements.fileInfo.classList.add('hidden');
+      elements.fileName.textContent = '';
+      elements.confirmImportBtn.disabled = true;
+    }
+
+    // 渲染根记录列表
+    function renderRootRecordsList() {
+      if (dataStore.rootRecords.length === 0) {
+        elements.rootRecordsList.innerHTML = `
+          <div class="text-center text-gray-500 py-8">
+            <i class="fa fa-database text-2xl mb-2 block"></i>
+            暂无根记录数据
+          </div>
+        `;
+        return;
+      }
+      
+      elements.rootRecordsList.innerHTML = dataStore.rootRecords.map(record => `
+        <div class="flex items-center p-3 border border-gray-100 rounded-lg hover:bg-gray-50">
+          <input type="checkbox" value="${record.id}" class="mr-3 rounded text-primary focus:ring-primary">
+          <div>
+            <div class="font-medium">${record.name}</div>
+            <div class="text-sm text-gray-500">${record.tag || '无标签'} | ${record.position || '成员'}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // 渲染记录列表
+    function renderRecords() {
+      const currentRecords = dataStore.monthRecords[dataStore.currentMonth] || [];
+      const searchTerm = elements.searchInput.value.toLowerCase().trim();
+      
+      // 过滤记录
+      dataStore.filteredRecords = currentRecords.filter(record => 
+        record.name.toLowerCase().includes(searchTerm) || 
+        (record.tag && record.tag.toLowerCase().includes(searchTerm))
+      );
+      
+      // 更新导出按钮状态
+      updateExportButtonState();
+      
+      // 分页处理
+      const totalPages = Math.ceil(dataStore.filteredRecords.length / dataStore.recordsPerPage);
+      const startIndex = (dataStore.currentPage - 1) * dataStore.recordsPerPage;
+      const endIndex = Math.min(startIndex + dataStore.recordsPerPage, dataStore.filteredRecords.length);
+      const paginatedRecords = dataStore.filteredRecords.slice(startIndex, endIndex);
+      
+      // 更新分页信息
+      elements.showingRange.textContent = dataStore.filteredRecords.length > 0 
+        ? `${startIndex + 1}-${endIndex}` 
+        : '0-0';
+      elements.totalRecords.textContent = dataStore.filteredRecords.length;
+      
+      // 更新分页按钮状态
+      elements.prevPageBtn.disabled = dataStore.currentPage === 1;
+      elements.nextPageBtn.disabled = dataStore.currentPage === totalPages || totalPages === 0;
+      
+      // 渲染分页数字
+      renderPaginationNumbers(totalPages);
+      
+      // 渲染记录
+      if (dataStore.filteredRecords.length === 0) {
+        elements.recordsTableBody.innerHTML = `
+          <tr>
+            <td colspan="10" class="px-4 py-8 text-center text-gray-500">
+              <i class="fa fa-folder-open-o text-3xl mb-2 block"></i>
+              暂无记录数据
+            </td>
+          </tr>
+        `;
+        return;
+      }
+      
+      // 根据视图模式渲染
+      if (dataStore.viewMode === 'table') {
+        elements.recordsTableBody.innerHTML = paginatedRecords.map(record => `
+          <tr class="border-b border-gray-100 hover:bg-gray-50">
+            <td class="px-4 py-3">
+              <input type="checkbox" value="${record.id}" class="record-checkbox rounded text-primary focus:ring-primary" 
+                ${dataStore.selectedRecords.has(record.id) ? 'checked' : ''}>
+            </td>
+            <td class="px-4 py-3 font-medium">${record.name}</td>
+            <td class="px-4 py-3">${record.tag || '-'}</td>
+            <td class="px-4 py-3">${record.position || '-'}</td>
+            <td class="px-4 py-3">${record.prosperity || 0}</td>
+            <td class="px-4 py-3">${record.maxTrophies || 0}</td>
+            <td class="px-4 py-3">
+              ${record.leagueTotal ? `${record.leagueActual || 0}/${record.leagueTotal} (${Math.round((record.leagueActual || 0)/record.leagueTotal*100)}%)` : '-'}
+            </td>
+            <td class="px-4 py-3">${record.score || 0}</td>
+            <td class="px-4 py-3">
+              <span class="px-2 py-1 rounded-full text-xs ${record.inClan === '是' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                ${record.inClan || '是'}
+              </span>
+            </td>
+            <td class="px-4 py-3">
+              <div class="flex space-x-1">
+                <button class="edit-record p-1 text-gray-500 hover:text-primary" data-id="${record.id}" title="编辑">
+                  <i class="fa fa-pencil"></i>
+                </button>
+                <button class="delete-record p-1 text-gray-500 hover:text-danger" data-id="${record.id}" title="删除">
+                  <i class="fa fa-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `).join('');
+      } else {
+        // 卡片视图
+        elements.recordsTableBody.innerHTML = `
+          <tr>
+            <td colspan="10" class="p-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                ${paginatedRecords.map(record => `
+                  <div class="border border-gray-100 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                    <div class="p-4">
+                      <div class="flex justify-between items-start mb-3">
+                        <div>
+                          <h4 class="font-medium">${record.name}</h4>
+                          <p class="text-sm text-gray-500">${record.tag || '无标签'}</p>
+                        </div>
+                        <input type="checkbox" value="${record.id}" class="record-checkbox rounded text-primary focus:ring-primary" 
+                          ${dataStore.selectedRecords.has(record.id) ? 'checked' : ''}>
+                      </div>
+                      
+                      <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                          <span class="text-gray-500">职位:</span>
+                          <span>${record.position || '-'}</span>
+                        </div>
+                        <div class="flex justify-between">
+                          <span class="text-gray-500">活跃度:</span>
+                          <span>${record.prosperity || 0}</span>
+                        </div>
+                        <div class="flex justify-between">
+                          <span class="text-gray-500">最高奖杯:</span>
+                          <span>${record.maxTrophies || 0}</span>
+                        </div>
+                        <div class="flex justify-between">
+                          <span class="text-gray-500">联赛完成:</span>
+                          <span>${record.leagueTotal ? `${record.leagueActual || 0}/${record.leagueTotal}` : '-'}</span>
+                        </div>
+                        <div class="flex justify-between">
+                          <span class="text-gray-500">评分:</span>
+                          <span>${record.score || 0}</span>
+                        </div>
+                        <div class="flex justify-between">
+                          <span class="text-gray-500">状态:</span>
+                          <span class="px-2 py-0.5 rounded-full text-xs ${record.inClan === '是' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                            ${record.inClan || '是'}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div class="mt-4 flex justify-end space-x-2">
+                        <button class="edit-record px-2 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50" data-id="${record.id}">
+                          <i class="fa fa-pencil mr-1"></i>编辑
+                        </button>
+                        <button class="delete-record px-2 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 text-danger hover:bg-red-50" data-id="${record.id}">
+                          <i class="fa fa-trash mr-1"></i>删除
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </td>
+          </tr>
+        `;
+      }
+      
+      // 绑定记录行事件
+      document.querySelectorAll('.edit-record').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const id = e.currentTarget.getAttribute('data-id');
+          const record = currentRecords.find(r => r.id === id);
+          if (record) {
+            openRecordModal(record);
+          }
+        });
+      });
+      
+      document.querySelectorAll('.delete-record').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const id = e.currentTarget.getAttribute('data-id');
+          dataStore.selectedRecords.clear();
+          dataStore.selectedRecords.add(id);
+          updateSelectedCount();
+          openDeleteModal();
+        });
+      });
+      
+      document.querySelectorAll('.record-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', (e) => {
+          const id = e.target.value;
+          if (e.target.checked) {
+            dataStore.selectedRecords.add(id);
+          } else {
+            dataStore.selectedRecords.delete(id);
+          }
+          elements.selectAllCheckbox.checked = dataStore.selectedRecords.size === paginatedRecords.length && paginatedRecords.length > 0;
+          updateSelectedCount();
+        });
+      });
+      
+      // 更新删除按钮状态
+      elements.deleteSelectedBtn.disabled = dataStore.selectedRecords.size === 0;
+    }
+
+    // 渲染分页数字
+    function renderPaginationNumbers(totalPages) {
+      elements.paginationNumbers.innerHTML = '';
+      
+      // 最多显示5个页码
+      let startPage = Math.max(1, dataStore.currentPage - 2);
+      let endPage = Math.min(totalPages, startPage + 4);
+      
+      // 调整起始页，确保显示5个页码（除非总页数少于5）
+      if (endPage - startPage < 4 && totalPages > 5) {
+        startPage = Math.max(1, endPage - 4);
+      }
+      
+      // 添加第一页和省略号（如果需要）
+      if (startPage > 1) {
+        addPageNumber(1);
+        if (startPage > 2) {
+          elements.paginationNumbers.appendChild(document.createTextNode('...'));
+        }
+      }
+      
+      // 添加中间页码
+      for (let i = startPage; i <= endPage; i++) {
+        addPageNumber(i);
+      }
+      
+      // 添加最后一页和省略号（如果需要）
+      if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+          elements.paginationNumbers.appendChild(document.createTextNode('...'));
+        }
+        addPageNumber(totalPages);
+      }
+    }
+
+    // 添加页码按钮
+    function addPageNumber(page) {
+      const button = document.createElement('button');
+      button.className = `w-8 h-8 flex items-center justify-center rounded mx-0.5 ${page === dataStore.currentPage ? 'bg-primary text-white' : 'hover:bg-gray-100'}`;
+      button.textContent = page;
+      button.addEventListener('click', () => changePage(page));
+      elements.paginationNumbers.appendChild(button);
+    }
+
+    // 改变页码
+    function changePage(page) {
+      const totalPages = Math.ceil(dataStore.filteredRecords.length / dataStore.recordsPerPage);
+      
+      if (page < 1 || page > totalPages) {
+        return;
+      }
+      
+      dataStore.currentPage = page;
+      renderRecords();
+      
+      // 滚动到表格顶部
+      elements.recordsTableBody.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // 全选/取消全选
+    function handleSelectAll(e) {
+      const currentRecords = dataStore.filteredRecords;
+      const startIndex = (dataStore.currentPage - 1) * dataStore.recordsPerPage;
+      const endIndex = Math.min(startIndex + dataStore.recordsPerPage, currentRecords.length);
+      const paginatedRecords = currentRecords.slice(startIndex, endIndex);
+      
+      if (e.target.checked) {
+        paginatedRecords.forEach(record => dataStore.selectedRecords.add(record.id));
+      } else {
+        paginatedRecords.forEach(record => dataStore.selectedRecords.delete(record.id));
+      }
+      
+      updateSelectedCount();
+      renderRecords(); // 重新渲染以更新复选框状态
+    }
+
+    // 更新选中数量
+    function updateSelectedCount() {
+      elements.selectedCount.textContent = dataStore.selectedRecords.size;
+      elements.deleteSelectedBtn.disabled = dataStore.selectedRecords.size === 0;
+    }
+
+    // 更新导出按钮状态
+    function updateExportButtonState() {
+      elements.exportBtn.disabled = (dataStore.monthRecords[dataStore.currentMonth] || []).length === 0;
+    }
+
+    // 更新统计数据
+    function updateStatistics() {
+      const currentRecords = dataStore.monthRecords[dataStore.currentMonth] || [];
+      
+      if (currentRecords.length === 0) {
+        elements.totalMembers.textContent = '0';
+        elements.avgProsperity.textContent = '0';
+        elements.totalTrophies.textContent = '0';
+        elements.leagueCompletion.textContent = '0%';
+        return;
+      }
+      
+      // 计算统计数据
+      const totalMembers = currentRecords.length;
+      const totalProsperity = currentRecords.reduce((sum, record) => sum + (record.prosperity || 0), 0);
+      const avgProsperity = Math.round(totalProsperity / totalMembers);
+      const totalTrophies = currentRecords.reduce((sum, record) => sum + (record.maxTrophies || 0), 0);
+      
+      let leagueTotal = 0;
+      let leagueActual = 0;
+      currentRecords.forEach(record => {
+        leagueTotal += (record.leagueTotal || 0);
+        leagueActual += (record.leagueActual || 0);
+      });
+      const leagueCompletion = leagueTotal > 0 ? Math.round((leagueActual / leagueTotal) * 100) : 0;
+      
+      // 更新统计显示
+      elements.totalMembers.textContent = totalMembers;
+      elements.avgProsperity.textContent = avgProsperity;
+      elements.totalTrophies.textContent = totalTrophies.toLocaleString();
+      elements.leagueCompletion.textContent = `${leagueCompletion}%`;
+      
+      // 生成图表
+      generateCharts(currentRecords);
+    }
+
+    // 生成图表
+    function generateCharts(records) {
+      // 活跃度分布图表
+      const prosperityCtx = document.getElementById('prosperity-chart').getContext('2d');
+      
+      // 分组活跃度数据
+      const prosperityGroups = {
+        '0-100': 0,
+        '101-200': 0,
+        '201-300': 0,
+        '301-400': 0,
+        '401+': 0
+      };
+      
+      records.forEach(record => {
+        const prosperity = record.prosperity || 0;
+        if (prosperity <= 100) {
+          prosperityGroups['0-100']++;
+        } else if (prosperity <= 200) {
+          prosperityGroups['101-200']++;
+        } else if (prosperity <= 300) {
+          prosperityGroups['201-300']++;
+        } else if (prosperity <= 400) {
+          prosperityGroups['301-400']++;
+        } else {
+          prosperityGroups['401+']++;
+        }
+      });
+      
+      // 销毁现有图表（如果存在）
+      if (window.prosperityChart) {
+        window.prosperityChart.destroy();
+      }
+      
+      window.prosperityChart = new Chart(prosperityCtx, {
+        type: 'bar',
+        data: {
+          labels: Object.keys(prosperityGroups),
+          datasets: [{
+            label: '成员数量',
+            data: Object.values(prosperityGroups),
+            backgroundColor: 'rgba(22, 93, 255, 0.7)',
+            borderColor: 'rgba(22, 93, 255, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                precision: 0
+              }
+            }
+          }
+        }
+      });
+      
+      // 奖杯数排名图表（取前10名）
+      const trophiesCtx = document.getElementById('trophies-chart').getContext('2d');
+      
+      // 排序并取前10名
+      const topTrophies = [...records]
+        .sort((a, b) => (b.maxTrophies || 0) - (a.maxTrophies || 0))
+        .slice(0, 10);
+      
+      // 销毁现有图表（如果存在）
+      if (window.trophiesChart) {
+        window.trophiesChart.destroy();
+      }
+      
+      window.trophiesChart = new Chart(trophiesCtx, {
+        type: 'bar',
+        data: {
+          labels: topTrophies.map(record => record.name),
+          datasets: [{
+            label: '最高奖杯数',
+            data: topTrophies.map(record => record.maxTrophies || 0),
+            backgroundColor: 'rgba(251, 189, 35, 0.7)',
+            borderColor: 'rgba(251, 189, 35, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+
+    // 导出记录
+    function exportRecords() {
+      const currentRecords = dataStore.monthRecords[dataStore.currentMonth] || [];
+      
+      if (currentRecords.length === 0) {
+        showToast("没有可导出的记录", "warning");
+        return;
+      }
+      
+      // 准备导出数据（排除id和内部字段）
+      const exportData = currentRecords.map(record => {
+        const { id, ...data } = record;
+        return data;
+      });
+      
+      // 转换为JSON
+      const jsonData = JSON.stringify(exportData, null, 2);
+      const blob = new Blob([jsonData], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      
+      // 创建下载链接
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `朱雀成员记录_${dataStore.currentMonth}.json`;
+      document.body.appendChild(a);
+      a.click();
+      
+      // 清理
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 0);
+      
+      showToast("记录导出成功", "success");
+    }
+
+    // CSV转JSON（简单实现）
+    function csvToJson(csv) {
+      const lines = csv.split('\n');
+      const result = [];
+      const headers = lines[0].split(',').map(header => header.trim());
+      
+      for (let i = 1; i < lines.length; i++) {
+        if (!lines[i]) continue;
+        
+        const obj = {};
+        const currentLine = lines[i].split(',').map(field => field.trim());
+        
+        for (let j = 0; j < headers.length; j++) {
+          // 尝试转换数字类型
+          if (!isNaN(currentLine[j]) && currentLine[j] !== '') {
+            obj[headers[j]] = Number(currentLine[j]);
+          } else {
+            obj[headers[j]] = currentLine[j];
+          }
+        }
+        
+        result.push(obj);
+      }
+      
+      return result;
+    }
+
+    // 显示提示框
+    function showToast(message, type = 'info') {
+      const toast = document.createElement('div');
+      
+      // 设置样式和图标
+      let bgColor, icon;
+      switch (type) {
+        case 'success':
+          bgColor = 'bg-green-500';
+          icon = 'fa-check-circle';
+          break;
+        case 'error':
+          bgColor = 'bg-red-500';
+          icon = 'fa-times-circle';
+          break;
+        case 'warning':
+          bgColor = 'bg-yellow-500';
+          icon = 'fa-exclamation-triangle';
+          break;
+        default:
+          bgColor = 'bg-blue-500';
+          icon = 'fa-info-circle';
+      }
+      
+      toast.className = `flex items-center px-4 py-3 rounded-lg shadow-lg text-white ${bgColor} transform transition-all duration-300 translate-x-full opacity-0`;
+      toast.innerHTML = `
+        <i class="fa ${icon} mr-3"></i>
+        <span>${message}</span>
+      `;
+      
+      elements.toastContainer.appendChild(toast);
+      
+      // 显示动画
+      setTimeout(() => {
+        toast.classList.remove('translate-x-full', 'opacity-0');
+      }, 10);
+      
+      // 自动关闭
+      setTimeout(() => {
+        toast.classList.add('translate-x-full', 'opacity-0');
+        setTimeout(() => {
+          elements.toastContainer.removeChild(toast);
+        }, 300);
+      }, 3000);
+    }
+
+    // 防抖函数
+    function debounce(func, wait) {
+      let timeout;
+      return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+      };
+    }
+
+    // 页面加载完成后初始化应用
+    document.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>
