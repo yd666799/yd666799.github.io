@@ -1,0 +1,2000 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>大明朱雀</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind 配置 -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#165DFF',
+            secondary: '#36D399',
+            danger: '#F87272',
+            warning: '#FBBD23',
+            info: '#3ABFF8',
+            dark: '#1E293B',
+            light: '#F8FAFC'
+          },
+          fontFamily: {
+            inter: ['Inter', 'sans-serif'],
+          },
+        },
+      }
+    }
+  </script>
+  
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .transition-height {
+        transition: max-height 0.3s ease-in-out;
+      }
+      .table-shadow {
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+      }
+      .btn-effect {
+        @apply transform hover:scale-105 transition-transform duration-200;
+      }
+      .card-hover {
+        @apply hover:shadow-lg transition-shadow duration-300;
+      }
+    }
+  </style>
+</head>
+
+<body class="font-inter bg-gray-50 text-gray-800 min-h-screen flex flex-col">
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyB40MBHZ3U6xPG_N1ulqVqeZGZnBCbSAWg",
+    authDomain: "share-notes-1b48c.firebaseapp.com",
+    projectId: "share-notes-1b48c",
+    storageBucket: "share-notes-1b48c.firebasestorage.app",
+    messagingSenderId: "99459795397",
+    appId: "1:99459795397:web:1a727e631c50f840fbe3ac",
+    measurementId: "G-09DG9T1FGB"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+</script>
+  <!-- 登录页面 -->
+  <div id="login-page" class="flex-grow flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white rounded-xl shadow-xl p-8">
+      <div class="text-center mb-8">
+        <h1 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-primary mb-2">大明朱雀</h1>
+        <p class="text-gray-500">管理员</p>
+      </div>
+      
+      <div class="space-y-6">
+        <div>
+          <label for="password" class="block text-sm font-medium text-gray-700 mb-1">输入密钥</label>
+          <div class="relative">
+            <input 
+              type="text" 
+              id="password" 
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none"
+              placeholder="大明朱雀#2QQGGU888"
+              autocomplete="off"
+            >
+            <button id="toggle-help" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary">
+              <i class="fa fa-question-circle"></i>
+            </button>
+          </div>
+          <p id="password-error" class="mt-1 text-danger text-sm hidden">密码错误，请重新输入</p>
+        </div>
+        
+        <div id="help-text" class="bg-blue-50 p-4 rounded-lg text-sm text-blue-800 hidden">
+          <p class="font-medium mb-2">密码规则：</p>
+          <ul class="list-disc list-inside space-y-1">
+            <li>使用数字0-9和操作符a、b、c、d组成</li>
+            <li>必须为7</li>
+            <li>不能直接输入7</li>
+            <li>大明朱雀#2QQGGU888</li>
+          </ul>
+        </div>
+        
+        <button 
+          id="login-btn" 
+          class="w-full bg-primary hover:bg-primary/90 text-white font-medium py-2 px-4 rounded-lg transition-colors btn-effect"
+        >
+          登录系统
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 主应用页面 -->
+  <div id="app" class="hidden flex flex-col min-h-screen">
+    <!-- 顶部导航 -->
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+      <div class="container mx-auto px-4 py-3 flex flex-wrap items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <i class="fa fa-bar-chart text-primary text-2xl"></i>
+          <h1 class="text-xl font-bold text-gray-800">朱雀</h1>
+        </div>
+        
+        <div class="flex items-center space-x-4 mt-2 sm:mt-0">
+          <div class="flex items-center space-x-2">
+            <span id="current-month-display" class="text-sm font-medium"></span>
+            <select id="month-selector" class="text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary">
+              <!-- 动态生成月份选项 -->
+            </select>
+          </div>
+          
+          <button id="switch-view" class="p-2 rounded-full hover:bg-gray-100 transition-colors" title="切换视图">
+            <i class="fa fa-th-large text-gray-600"></i>
+          </button>
+          
+          <button id="logout-btn" class="text-sm text-gray-600 hover:text-danger transition-colors">
+            <i class="fa fa-sign-out mr-1"></i> 退出
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- 主要内容区 -->
+    <main class="flex-grow container mx-auto px-4 py-6">
+      <!-- 控制区 -->
+      <div class="bg-white rounded-xl shadow-sm p-4 mb-6">
+        <div class="flex flex-wrap gap-4 items-center justify-between">
+          <div class="flex flex-wrap gap-3">
+            <button id="add-record" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg flex items-center btn-effect">
+              <i class="fa fa-plus mr-2"></i> 添加记录
+            </button>
+            
+            <div class="relative">
+              <button id="import-btn" class="bg-secondary hover:bg-secondary/90 text-white px-4 py-2 rounded-lg flex items-center btn-effect">
+                <i class="fa fa-upload mr-2"></i> 导入
+              </button>
+              <div id="import-dropdown" class="absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 hidden z-10">
+                <button id="import-single" class="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm">
+                  <i class="fa fa-file-text-o mr-2"></i>单个导入
+                </button>
+                <button id="import-batch" class="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm">
+                  <i class="fa fa-files-o mr-2"></i>批量导入
+                </button>
+              </div>
+            </div>
+            
+            <div class="relative">
+              <button id="export-btn" class="bg-info hover:bg-info/90 text-white px-4 py-2 rounded-lg flex items-center btn-effect disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                <i class="fa fa-download mr-2"></i> 导出
+              </button>
+              <div id="export-dropdown" class="absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 hidden z-10">
+                <button id="export-selected" class="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm">
+                  <i class="fa fa-check-square-o mr-2"></i>导出选中
+                </button>
+                <button id="export-all" class="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm">
+                  <i class="fa fa-list mr-2"></i>导出全部
+                </button>
+              </div>
+            </div>
+            
+            <button id="copy-from-root" class="bg-warning hover:bg-warning/90 text-white px-4 py-2 rounded-lg flex items-center btn-effect">
+              <i class="fa fa-copy mr-2"></i> 从根记录复制
+            </button>
+          </div>
+          
+          <div class="flex flex-wrap gap-3 items-center">
+            <div class="flex items-center">
+              <label for="sort-by" class="text-sm mr-2 text-gray-600">排序方式：</label>
+              <select id="sort-by" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary">
+                <option value="prosperity">繁荣值高低</option>
+                <option value="score">得分值高低</option>
+                <option value="position">职位优先级</option>
+                <option value="evaluation">评测优先级</option>
+              </select>
+            </div>
+            
+            <div class="flex items-center">
+              <label for="view-set" class="text-sm mr-2 text-gray-600">视图：</label>
+              <select id="view-set" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary">
+                <option value="current">当前月记录</option>
+                <option value="root">根记录</option>
+              </select>
+            </div>
+            
+            <div class="relative">
+              <input 
+                type="text" 
+                id="search-input" 
+                placeholder="搜索..." 
+                class="border border-gray-300 rounded-md px-3 py-1.5 pl-9 text-sm focus:outline-none focus:ring-1 focus:ring-primary w-40 lg:w-56"
+              >
+              <i class="fa fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 数据统计卡片 -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-xl shadow-sm p-4 card-hover">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-gray-500 text-sm">总记录数</p>
+              <p id="total-records" class="text-2xl font-bold mt-1">0</p>
+            </div>
+            <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+              <i class="fa fa-users"></i>
+            </div>
+          </div>
+        </div>
+        
+        <div class="bg-white rounded-xl shadow-sm p-4 card-hover">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-gray-500 text-sm">平均得分</p>
+              <p id="avg-score" class="text-2xl font-bold mt-1">0.00</p>
+            </div>
+            <div class="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary">
+              <i class="fa fa-star"></i>
+            </div>
+          </div>
+        </div>
+        
+        <div class="bg-white rounded-xl shadow-sm p-4 card-hover">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-gray-500 text-sm">首领/副首领</p>
+              <p id="leaders" class="text-2xl font-bold mt-1">0</p>
+            </div>
+            <div class="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center text-warning">
+              <i class="fa fa-trophy"></i>
+            </div>
+          </div>
+        </div>
+        
+        <div class="bg-white rounded-xl shadow-sm p-4 card-hover">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-gray-500 text-sm">平均摧毁率</p>
+              <p id="avg-destruction" class="text-2xl font-bold mt-1">0%</p>
+            </div>
+            <div class="w-10 h-10 rounded-full bg-info/10 flex items-center justify-center text-info">
+              <i class="fa fa-percent"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 表格视图 -->
+      <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
+        <div class="overflow-x-auto">
+          <table class="w-full table-shadow">
+            <thead>
+              <tr class="bg-gray-50 border-b border-gray-200">
+                <th class="px-4 py-3 text-left w-12">
+                  <input type="checkbox" id="select-all" class="rounded text-primary focus:ring-primary">
+                </th>
+                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">名字</th>
+                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">职位</th>
+                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">繁荣</th>
+                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">得分</th>
+                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">总星数</th>
+                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">摧毁率</th>
+                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">评测</th>
+                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">加入时间</th>
+                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">操作</th>
+              </tr>
+            </thead>
+            <tbody id="records-table-body">
+              <!-- 记录将动态插入这里 -->
+              <tr>
+                <td colspan="10" class="px-4 py-8 text-center text-gray-500">
+                  <div class="flex flex-col items-center">
+                    <i class="fa fa-folder-open-o text-4xl mb-2 text-gray-300"></i>
+                    <p>暂无记录，请添加或导入数据</p>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="px-4 py-3 bg-gray-50 border-t border-gray-200 flex flex-wrap items-center justify-between">
+          <div class="text-sm text-gray-600 mb-2 sm:mb-0">
+            显示 <span id="shown-count">0</span> 条，共 <span id="total-count">0</span> 条记录
+          </div>
+          
+          <div class="flex items-center space-x-2">
+            <button id="prev-page" class="px-3 py-1 border border-gray-300 rounded-md text-sm hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+              <i class="fa fa-chevron-left"></i>
+            </button>
+            <span id="page-info" class="text-sm text-gray-600">第 1 页</span>
+            <button id="next-page" class="px-3 py-1 border border-gray-300 rounded-md text-sm hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+              <i class="fa fa-chevron-right"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-white border-t border-gray-200 py-4">
+      <div class="container mx-auto px-4 text-center text-sm text-gray-500">
+        <p>#2QQGGU888 &copy; <span id="current-year"></span></p>
+      </div>
+    </footer>
+  </div>
+
+  <!-- 添加/编辑记录模态框 -->
+  <div id="record-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+      <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white z-10">
+        <h2 id="modal-title" class="text-xl font-bold">添加记录</h2>
+        <button id="close-modal" class="text-gray-500 hover:text-gray-700">
+          <i class="fa fa-times text-xl"></i>
+        </button>
+      </div>
+      
+      <form id="record-form" class="p-6 space-y-5">
+        <input type="hidden" id="record-id">
+        <input type="hidden" id="record-month">
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div>
+            <label for="name" class="block text-sm font-medium text-gray-700 mb-1">名字 <span class="text-danger">*</span></label>
+            <input type="text" id="name" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none" required>
+          </div>
+          
+          <div>
+            <label for="tag" class="block text-sm font-medium text-gray-700 mb-1">标签</label>
+            <input type="text" id="tag" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none">
+          </div>
+          
+          <div>
+            <label for="position" class="block text-sm font-medium text-gray-700 mb-1">职位</label>
+            <select id="position" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none">
+              <option value="">请选择</option>
+              <option value="首领">首领</option>
+              <option value="副首领">副首领</option>
+              <option value="长老">长老</option>
+              <option value="成员">成员</option>
+            </select>
+          </div>
+          
+          <div>
+            <label for="evaluation" class="block text-sm font-medium text-gray-700 mb-1">评测</label>
+            <select id="evaluation" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none">
+              <option value="">请选择</option>
+              <option value="实力派">实力派</option>
+              <option value="优质">优质</option>
+              <option value="中坚">中坚</option>
+              <option value="潜力股">潜力股</option>
+            </select>
+          </div>
+          
+          <div>
+            <label for="prosperity" class="block text-sm font-medium text-gray-700 mb-1">繁荣</label>
+            <input type="number" id="prosperity" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none" min="0">
+          </div>
+          
+          <div>
+            <label for="max-trophies" class="block text-sm font-medium text-gray-700 mb-1">历史最高奖杯数</label>
+            <input type="number" id="max-trophies" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none" min="0">
+          </div>
+          
+          <div>
+            <label for="join-date" class="block text-sm font-medium text-gray-700 mb-1">加入起始时间</label>
+            <input type="date" id="join-date" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none">
+          </div>
+          
+          <div>
+            <label for="days-in-clan" class="block text-sm font-medium text-gray-700 mb-1">加入累计时间 (天)</label>
+            <input type="number" id="days-in-clan" class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50" readonly>
+          </div>
+          
+          <div>
+            <label for="league-total" class="block text-sm font-medium text-gray-700 mb-1">当月联赛总次数</label>
+            <input type="number" id="league-total" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none" min="0">
+          </div>
+          
+          <div>
+            <label for="league-actual" class="block text-sm font-medium text-gray-700 mb-1">实际次数</label>
+            <input type="number" id="league-actual" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none" min="0">
+          </div>
+          
+          <div>
+            <label for="stars" class="block text-sm font-medium text-gray-700 mb-1">总星数</label>
+            <input type="number" id="stars" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none" min="0">
+          </div>
+          
+          <div>
+            <label for="destruction-rate" class="block text-sm font-medium text-gray-700 mb-1">摧毁率 (%)</label>
+            <input type="number" id="destruction-rate" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none" min="0" max="100" step="0.01">
+          </div>
+          
+          <div>
+            <label for="score" class="block text-sm font-medium text-gray-700 mb-1">得分</label>
+            <input type="number" id="score" class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50" readonly step="0.0001">
+          </div>
+          
+          <div>
+            <label for="in-clan" class="block text-sm font-medium text-gray-700 mb-1">是否在部落</label>
+            <select id="in-clan" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all outline-none">
+              <option value="是">是</option>
+              <option value="否">否</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="pt-2 flex justify-end space-x-3">
+          <button type="button" id="cancel-form" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors btn-effect">
+            取消
+          </button>
+          <button type="submit" class="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors btn-effect">
+            保存
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 下载格式选择模态框 -->
+  <div id="download-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
+      <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <h3 class="text-lg font-bold">选择下载格式</h3>
+        <button id="close-download-modal" class="text-gray-500 hover:text-gray-700">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+      
+      <div class="p-6 space-y-4">
+        <div class="flex items-center p-3 border border-gray-200 rounded-lg hover:border-primary hover:bg-primary/5 cursor-pointer transition-colors" data-format="json">
+          <i class="fa fa-file-code-o text-xl text-primary mr-3"></i>
+          <div>
+            <p class="font-medium">JSON格式</p>
+            <p class="text-sm text-gray-500">适用于系统间数据交换</p>
+          </div>
+        </div>
+        
+        <div class="flex items-center p-3 border border-gray-200 rounded-lg hover:border-primary hover:bg-primary/5 cursor-pointer transition-colors" data-format="csv">
+          <i class="fa fa-file-text-o text-xl text-primary mr-3"></i>
+          <div>
+            <p class="font-medium">CSV格式</p>
+            <p class="text-sm text-gray-500">适用于Excel等表格软件</p>
+          </div>
+        </div>
+        
+        <div class="flex items-center p-3 border border-gray-200 rounded-lg hover:border-primary hover:bg-primary/5 cursor-pointer transition-colors" data-format="txt">
+          <i class="fa fa-file-text text-xl text-primary mr-3"></i>
+          <div>
+            <p class="font-medium">文本格式</p>
+            <p class="text-sm text-gray-500">简单的文本列表</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="px-6 py-4 border-t border-gray-200 flex justify-end">
+        <button id="confirm-download" class="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors btn-effect">
+          确认下载
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 从根记录复制模态框 -->
+  <div id="copy-root-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+      <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white z-10">
+        <h3 class="text-lg font-bold">从根记录选择成员</h3>
+        <button id="close-copy-modal" class="text-gray-500 hover:text-gray-700">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+      
+      <div class="p-6">
+        <div class="relative mb-4">
+          <input 
+            type="text" 
+            id="root-search" 
+            placeholder="搜索根记录中的成员..." 
+            class="w-full border border-gray-300 rounded-md px-3 py-2 pl-9 focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+          <i class="fa fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+        </div>
+        
+        <div class="flex items-center justify-between mb-4">
+          <button id="select-all-root" class="text-sm text-primary hover:text-primary/80">
+            <i class="fa fa-check-square-o mr-1"></i> 全选
+          </button>
+          <button id="deselect-all-root" class="text-sm text-gray-600 hover:text-gray-800">
+            <i class="fa fa-square-o mr-1"></i> 取消全选
+          </button>
+        </div>
+        
+        <div id="root-records-list" class="space-y-2 max-h-[50vh] overflow-y-auto pr-2">
+          <!-- 根记录将动态插入这里 -->
+          <div class="text-center text-gray-500 py-8">
+            <p>根记录中暂无成员</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3 sticky bottom-0 bg-white">
+        <button id="cancel-copy" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors btn-effect">
+          取消
+        </button>
+        <button id="confirm-copy" class="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors btn-effect">
+          复制选中成员
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 导入文件模态框 -->
+  <div id="import-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
+      <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <h3 id="import-modal-title" class="text-lg font-bold">导入数据</h3>
+        <button id="close-import-modal" class="text-gray-500 hover:text-gray-700">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+      
+      <div class="p-6">
+        <p class="text-sm text-gray-600 mb-4">支持导入JSON或CSV格式的文件</p>
+        
+        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary transition-colors">
+          <i class="fa fa-cloud-upload text-3xl text-gray-400 mb-2"></i>
+          <p class="text-sm text-gray-500 mb-3">拖放文件到此处或点击选择文件</p>
+          <input type="file" id="import-file" class="hidden" accept=".json,.csv,.txt">
+          <button id="browse-file" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition-colors btn-effect">
+            选择文件
+          </button>
+        </div>
+        
+        <div id="file-info" class="mt-4 hidden">
+          <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div class="flex items-center">
+              <i class="fa fa-file-o text-gray-500 mr-2"></i>
+              <span id="file-name" class="text-sm truncate max-w-[200px]"></span>
+            </div>
+            <button id="remove-file" class="text-gray-400 hover:text-danger">
+              <i class="fa fa-times"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="px-6 py-4 border-t border-gray-200 flex justify-end">
+        <button id="confirm-import" class="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors btn-effect disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+          确认导入
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 确认删除模态框 -->
+  <div id="delete-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
+      <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-bold">确认删除</h3>
+      </div>
+      
+      <div class="p-6">
+        <p class="text-gray-700">您确定要删除选中的记录吗？此操作无法撤销。</p>
+        <p id="delete-count" class="text-sm text-gray-500 mt-2">将删除 <span class="font-medium">1</span> 条记录</p>
+      </div>
+      
+      <div class="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+        <button id="cancel-delete" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors btn-effect">
+          取消
+        </button>
+        <button id="confirm-delete" class="px-4 py-2 bg-danger hover:bg-danger/90 text-white rounded-lg transition-colors btn-effect">
+          确认删除
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 通知提示 -->
+  <div id="toast" class="fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 flex items-center z-50">
+    <i id="toast-icon" class="mr-2"></i>
+    <span id="toast-message"></span>
+  </div>
+
+  <script>
+    // 全局数据存储
+    const dataStore = {
+      rootRecords: [],
+      monthRecords: {},
+      currentMonth: '',
+      currentView: 'current',
+      currentSort: 'prosperity',
+      currentPage: 1,
+      itemsPerPage: 10,
+      selectedRecords: new Set(),
+      searchQuery: ''
+    };
+
+    // DOM 元素
+    const elements = {
+      loginPage: document.getElementById('login-page'),
+      app: document.getElementById('app'),
+      passwordInput: document.getElementById('password'),
+      loginBtn: document.getElementById('login-btn'),
+      passwordError: document.getElementById('password-error'),
+      toggleHelp: document.getElementById('toggle-help'),
+      helpText: document.getElementById('help-text'),
+      logoutBtn: document.getElementById('logout-btn'),
+      currentMonthDisplay: document.getElementById('current-month-display'),
+      monthSelector: document.getElementById('month-selector'),
+      addRecordBtn: document.getElementById('add-record'),
+      recordsTableBody: document.getElementById('records-table-body'),
+      recordModal: document.getElementById('record-modal'),
+      closeModal: document.getElementById('close-modal'),
+      modalTitle: document.getElementById('modal-title'),
+      recordForm: document.getElementById('record-form'),
+      cancelForm: document.getElementById('cancel-form'),
+      recordId: document.getElementById('record-id'),
+      recordMonth: document.getElementById('record-month'),
+      nameInput: document.getElementById('name'),
+      tagInput: document.getElementById('tag'),
+      positionSelect: document.getElementById('position'),
+      evaluationSelect: document.getElementById('evaluation'),
+      prosperityInput: document.getElementById('prosperity'),
+      maxTrophiesInput: document.getElementById('max-trophies'),
+      joinDateInput: document.getElementById('join-date'),
+      daysInClanInput: document.getElementById('days-in-clan'),
+      leagueTotalInput: document.getElementById('league-total'),
+      leagueActualInput: document.getElementById('league-actual'),
+      starsInput: document.getElementById('stars'),
+      destructionRateInput: document.getElementById('destruction-rate'),
+      scoreInput: document.getElementById('score'),
+      inClanSelect: document.getElementById('in-clan'),
+      selectAllCheckbox: document.getElementById('select-all'),
+      exportBtn: document.getElementById('export-btn'),
+      exportDropdown: document.getElementById('export-dropdown'),
+      exportSelectedBtn: document.getElementById('export-selected'),
+      exportAllBtn: document.getElementById('export-all'),
+      downloadModal: document.getElementById('download-modal'),
+      closeDownloadModal: document.getElementById('close-download-modal'),
+      confirmDownloadBtn: document.getElementById('confirm-download'),
+      downloadFormat: null,
+      importBtn: document.getElementById('import-btn'),
+      importDropdown: document.getElementById('import-dropdown'),
+      importSingleBtn: document.getElementById('import-single'),
+      importBatchBtn: document.getElementById('import-batch'),
+      importModal: document.getElementById('import-modal'),
+      importModalTitle: document.getElementById('import-modal-title'),
+      closeImportModal: document.getElementById('close-import-modal'),
+      browseFileBtn: document.getElementById('browse-file'),
+      importFileInput: document.getElementById('import-file'),
+      fileInfo: document.getElementById('file-info'),
+      fileName: document.getElementById('file-name'),
+      removeFileBtn: document.getElementById('remove-file'),
+      confirmImportBtn: document.getElementById('confirm-import'),
+      copyFromRootBtn: document.getElementById('copy-from-root'),
+      copyRootModal: document.getElementById('copy-root-modal'),
+      closeCopyModal: document.getElementById('close-copy-modal'),
+      rootSearchInput: document.getElementById('root-search'),
+      selectAllRootBtn: document.getElementById('select-all-root'),
+      deselectAllRootBtn: document.getElementById('deselect-all-root'),
+      rootRecordsList: document.getElementById('root-records-list'),
+      cancelCopyBtn: document.getElementById('cancel-copy'),
+      confirmCopyBtn: document.getElementById('confirm-copy'),
+      deleteModal: document.getElementById('delete-modal'),
+      closeDeleteModal: document.getElementById('close-delete-modal'),
+      cancelDeleteBtn: document.getElementById('cancel-delete'),
+      confirmDeleteBtn: document.getElementById('confirm-delete'),
+      deleteCount: document.getElementById('delete-count').querySelector('span'),
+      sortBySelect: document.getElementById('sort-by'),
+      viewSetSelect: document.getElementById('view-set'),
+      searchInput: document.getElementById('search-input'),
+      totalRecords: document.getElementById('total-records'),
+      avgScore: document.getElementById('avg-score'),
+      leadersCount: document.getElementById('leaders'),
+      avgDestruction: document.getElementById('avg-destruction'),
+      shownCount: document.getElementById('shown-count'),
+      totalCount: document.getElementById('total-count'),
+      prevPageBtn: document.getElementById('prev-page'),
+      nextPageBtn: document.getElementById('next-page'),
+      pageInfo: document.getElementById('page-info'),
+      currentYear: document.getElementById('current-year'),
+      toast: document.getElementById('toast'),
+      toastIcon: document.getElementById('toast-icon'),
+      toastMessage: document.getElementById('toast-message')
+    };
+
+    // 初始化
+    function init() {
+      // 设置当前年份
+      elements.currentYear.textContent = new Date().getFullYear();
+      
+      // 生成月份选项
+      generateMonthOptions();
+      
+      // 从本地存储加载数据
+      loadData();
+      
+      // 绑定事件监听器
+      bindEvents();
+    }
+
+    // 生成月份选项
+    function generateMonthOptions() {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth() + 1;
+      
+      // 设置当前月份
+      dataStore.currentMonth = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+      elements.currentMonthDisplay.textContent = `${currentYear}年${currentMonth}月`;
+      
+      // 生成过去12个月和未来3个月的选项
+      for (let i = -12; i <= 3; i++) {
+        const date = new Date(currentYear, currentMonth - 1 + i, 1);
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+        const option = document.createElement('option');
+        option.value = monthStr;
+        option.textContent = `${year}年${month}月`;
+        if (monthStr === dataStore.currentMonth) {
+          option.selected = true;
+        }
+        elements.monthSelector.appendChild(option);
+      }
+    }
+
+    // 从本地存储加载数据
+    function loadData() {
+      const savedRootRecords = localStorage.getItem('tribeRootRecords');
+      const savedMonthRecords = localStorage.getItem('tribeMonthRecords');
+      
+      if (savedRootRecords) {
+        dataStore.rootRecords = JSON.parse(savedRootRecords);
+      }
+      
+      if (savedMonthRecords) {
+        dataStore.monthRecords = JSON.parse(savedMonthRecords);
+      }
+      
+      // 确保当前月份记录存在
+      if (!dataStore.monthRecords[dataStore.currentMonth]) {
+        dataStore.monthRecords[dataStore.currentMonth] = [];
+      }
+      
+      // 渲染记录
+      renderRecords();
+      updateStatistics();
+    }
+
+    // 保存数据到本地存储
+    function saveData() {
+      localStorage.setItem('tribeRootRecords', JSON.stringify(dataStore.rootRecords));
+      localStorage.setItem('tribeMonthRecords', JSON.stringify(dataStore.monthRecords));
+    }
+
+    // 绑定事件监听器
+    function bindEvents() {
+      // 登录相关
+      elements.loginBtn.addEventListener('click', handleLogin);
+      elements.passwordInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleLogin();
+      });
+      elements.toggleHelp.addEventListener('click', () => {
+        elements.helpText.classList.toggle('hidden');
+      });
+      elements.logoutBtn.addEventListener('click', handleLogout);
+      
+      // 月份选择
+      elements.monthSelector.addEventListener('change', (e) => {
+        dataStore.currentMonth = e.target.value;
+        const [year, month] = dataStore.currentMonth.split('-');
+        elements.currentMonthDisplay.textContent = `${year}年${month}月`;
+        
+        // 确保当前月份记录存在
+        if (!dataStore.monthRecords[dataStore.currentMonth]) {
+          dataStore.monthRecords[dataStore.currentMonth] = [];
+        }
+        
+        // 重置选择和分页
+        dataStore.selectedRecords.clear();
+        dataStore.currentPage = 1;
+        
+        renderRecords();
+        updateStatistics();
+        updateExportButton();
+      });
+      
+      // 视图切换
+      elements.viewSetSelect.addEventListener('change', (e) => {
+        dataStore.currentView = e.target.value;
+        dataStore.currentPage = 1;
+        dataStore.selectedRecords.clear();
+        elements.selectAllCheckbox.checked = false;
+        renderRecords();
+        updateStatistics();
+        updateExportButton();
+      });
+      
+      // 排序方式
+      elements.sortBySelect.addEventListener('change', (e) => {
+        dataStore.currentSort = e.target.value;
+        dataStore.currentPage = 1;
+        renderRecords();
+      });
+      
+      // 搜索
+      elements.searchInput.addEventListener('input', (e) => {
+        dataStore.searchQuery = e.target.value.toLowerCase();
+        dataStore.currentPage = 1;
+        renderRecords();
+      });
+      
+      // 添加记录
+      elements.addRecordBtn.addEventListener('click', openAddRecordModal);
+      
+      // 关闭模态框
+      elements.closeModal.addEventListener('click', closeRecordModal);
+      elements.cancelForm.addEventListener('click', closeRecordModal);
+      
+      // 表单提交
+      elements.recordForm.addEventListener('submit', handleFormSubmit);
+      
+      // 计算加入天数
+      elements.joinDateInput.addEventListener('change', calculateDaysInClan);
+      
+      // 计算得分
+      elements.leagueTotalInput.addEventListener('input', calculateScore);
+      elements.starsInput.addEventListener('input', calculateScore);
+      elements.positionSelect.addEventListener('change', calculateScore);
+      
+      // 全选/取消全选
+      elements.selectAllCheckbox.addEventListener('change', handleSelectAll);
+      
+      // 导出相关
+      elements.exportBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        elements.exportDropdown.classList.toggle('hidden');
+      });
+      
+      document.addEventListener('click', (e) => {
+        if (!elements.exportBtn.contains(e.target) && !elements.exportDropdown.contains(e.target)) {
+          elements.exportDropdown.classList.add('hidden');
+        }
+        
+        if (!elements.importBtn.contains(e.target) && !elements.importDropdown.contains(e.target)) {
+          elements.importDropdown.classList.add('hidden');
+        }
+      });
+      
+      elements.exportSelectedBtn.addEventListener('click', () => {
+        elements.exportDropdown.classList.add('hidden');
+        if (dataStore.selectedRecords.size === 0) {
+          showToast('请先选择要导出的记录', 'warning');
+          return;
+        }
+        openDownloadModal('selected');
+      });
+      
+      elements.exportAllBtn.addEventListener('click', () => {
+        elements.exportDropdown.classList.add('hidden');
+        openDownloadModal('all');
+      });
+      
+      // 下载相关
+      elements.closeDownloadModal.addEventListener('click', closeDownloadModal);
+      elements.confirmDownloadBtn.addEventListener('click', handleDownload);
+      
+      document.querySelectorAll('#download-modal [data-format]').forEach(el => {
+        el.addEventListener('click', () => {
+          document.querySelectorAll('#download-modal [data-format]').forEach(item => {
+            item.classList.remove('border-primary', 'bg-primary/5');
+            item.classList.add('border-gray-200');
+          });
+          el.classList.remove('border-gray-200');
+          el.classList.add('border-primary', 'bg-primary/5');
+          elements.downloadFormat = el.dataset.format;
+        });
+      });
+      
+      // 导入相关
+      elements.importBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        elements.importDropdown.classList.toggle('hidden');
+      });
+      
+      elements.importSingleBtn.addEventListener('click', () => {
+        elements.importDropdown.classList.add('hidden');
+        openImportModal('single');
+      });
+      
+      elements.importBatchBtn.addEventListener('click', () => {
+        elements.importDropdown.classList.add('hidden');
+        openImportModal('batch');
+      });
+      
+      elements.closeImportModal.addEventListener('click', closeImportModal);
+      elements.browseFileBtn.addEventListener('click', () => {
+        elements.importFileInput.click();
+      });
+      
+      elements.importFileInput.addEventListener('change', handleFileSelection);
+      elements.removeFileBtn.addEventListener('click', clearFileSelection);
+      elements.confirmImportBtn.addEventListener('click', handleImport);
+      
+      // 从根记录复制
+      elements.copyFromRootBtn.addEventListener('click', openCopyRootModal);
+      elements.closeCopyModal.addEventListener('click', closeCopyRootModal);
+      elements.cancelCopyBtn.addEventListener('click', closeCopyRootModal);
+      elements.rootSearchInput.addEventListener('input', renderRootRecordsList);
+      elements.selectAllRootBtn.addEventListener('click', selectAllRootRecords);
+      elements.deselectAllRootBtn.addEventListener('click', deselectAllRootRecords);
+      elements.confirmCopyBtn.addEventListener('click', handleCopyFromRoot);
+      
+      // 删除相关
+      elements.confirmDeleteBtn.addEventListener('click', handleDeleteRecords);
+      elements.closeDeleteModal.addEventListener('click', closeDeleteModal);
+      elements.cancelDeleteBtn.addEventListener('click', closeDeleteModal);
+      
+      // 分页
+      elements.prevPageBtn.addEventListener('click', goToPrevPage);
+      elements.nextPageBtn.addEventListener('click', goToNextPage);
+    }
+
+    // 处理登录
+    function handleLogin() {
+      const password = elements.passwordInput.value.trim();
+      
+      // 不能直接输入7
+      if (password === '7') {
+        showPasswordError();
+        return;
+      }
+      
+      try {
+        const result = evaluatePasswordExpression(password);
+        if (result === 7) {
+          elements.loginPage.classList.add('hidden');
+          elements.app.classList.remove('hidden');
+          elements.passwordInput.value = '';
+          elements.passwordError.classList.add('hidden');
+        } else {
+          showPasswordError();
+        }
+      } catch (e) {
+        showPasswordError();
+      }
+    }
+
+    // 显示密码错误
+    function showPasswordError() {
+      elements.passwordError.classList.remove('hidden');
+      elements.passwordInput.classList.add('border-danger');
+      setTimeout(() => {
+        elements.passwordInput.classList.remove('border-danger');
+      }, 2000);
+    }
+
+    // 评估密码表达式
+    function evaluatePasswordExpression(expr) {
+      // 替换操作符
+      let sanitized = expr
+        .replace(/a/g, '*')
+        .replace(/b/g, '/')
+        .replace(/c/g, '+')
+        .replace(/d/g, '-');
+      
+      // 安全性检查 - 只允许数字和基本运算符
+      if (!/^[\d+\-*/().]+$/.test(sanitized)) {
+        throw new Error('Invalid characters');
+      }
+      
+      // 使用Function构造函数进行计算（比eval稍安全）
+      return new Function(`return ${sanitized};`)();
+    }
+
+    // 处理登出
+    function handleLogout() {
+      elements.app.classList.add('hidden');
+      elements.loginPage.classList.remove('hidden');
+      elements.passwordInput.focus();
+    }
+
+    // 打开添加记录模态框
+    function openAddRecordModal() {
+      elements.modalTitle.textContent = '添加记录';
+      elements.recordForm.reset();
+      elements.recordId.value = '';
+      elements.recordMonth.value = dataStore.currentMonth;
+      elements.daysInClanInput.value = '';
+      elements.scoreInput.value = '';
+      elements.recordModal.classList.remove('hidden');
+      elements.nameInput.focus();
+    }
+
+    // 打开编辑记录模态框
+    function openEditRecordModal(id) {
+      const records = getCurrentRecords();
+      const record = records.find(r => r.id === id);
+      
+      if (!record) return;
+      
+      elements.modalTitle.textContent = '编辑记录';
+      elements.recordId.value = record.id;
+      elements.recordMonth.value = record.month || dataStore.currentMonth;
+      elements.nameInput.value = record.name || '';
+      elements.tagInput.value = record.tag || '';
+      elements.positionSelect.value = record.position || '';
+      elements.evaluationSelect.value = record.evaluation || '';
+      elements.prosperityInput.value = record.prosperity || '';
+      elements.maxTrophiesInput.value = record.maxTrophies || '';
+      elements.joinDateInput.value = record.joinDate || '';
+      elements.leagueTotalInput.value = record.leagueTotal || '';
+      elements.leagueActualInput.value = record.leagueActual || '';
+      elements.starsInput.value = record.stars || '';
+      elements.destructionRateInput.value = record.destructionRate || '';
+      elements.scoreInput.value = record.score || '';
+      elements.inClanSelect.value = record.inClan || '是';
+      
+      calculateDaysInClan();
+      
+      elements.recordModal.classList.remove('hidden');
+      elements.nameInput.focus();
+    }
+
+    // 关闭记录模态框
+    function closeRecordModal() {
+      elements.recordModal.classList.add('hidden');
+    }
+
+    // 处理表单提交
+    function handleFormSubmit(e) {
+      e.preventDefault();
+      
+      const id = elements.recordId.value || generateId();
+      const month = elements.recordMonth.value;
+      const name = elements.nameInput.value.trim();
+      
+      if (!name) {
+        showToast('请输入名字', 'warning');
+        elements.nameInput.focus();
+        return;
+      }
+      
+      const record = {
+        id,
+        month,
+        name,
+        tag: elements.tagInput.value.trim(),
+        position: elements.positionSelect.value,
+        evaluation: elements.evaluationSelect.value,
+        prosperity: elements.prosperityInput.value ? Number(elements.prosperityInput.value) : null,
+        maxTrophies: elements.maxTrophiesInput.value ? Number(elements.maxTrophiesInput.value) : null,
+        joinDate: elements.joinDateInput.value,
+        daysInClan: elements.daysInClanInput.value ? Number(elements.daysInClanInput.value) : null,
+        leagueTotal: elements.leagueTotalInput.value ? Number(elements.leagueTotalInput.value) : null,
+        leagueActual: elements.leagueActualInput.value ? Number(elements.leagueActualInput.value) : null,
+        stars: elements.starsInput.value ? Number(elements.starsInput.value) : null,
+        destructionRate: elements.destructionRateInput.value ? Number(elements.destructionRateInput.value) : null,
+        score: elements.scoreInput.value ? Number(elements.scoreInput.value) : null,
+        inClan: elements.inClanSelect.value
+      };
+      
+      // 保存到当前视图的记录中
+      if (dataStore.currentView === 'root') {
+        // 保存到根记录
+        const index = dataStore.rootRecords.findIndex(r => r.id === id);
+        if (index >= 0) {
+          dataStore.rootRecords[index] = record;
+        } else {
+          dataStore.rootRecords.push(record);
+        }
+      } else {
+        // 保存到月份记录
+        if (!dataStore.monthRecords[month]) {
+          dataStore.monthRecords[month] = [];
+        }
+        
+        const index = dataStore.monthRecords[month].findIndex(r => r.id === id);
+        if (index >= 0) {
+          dataStore.monthRecords[month][index] = record;
+        } else {
+          dataStore.monthRecords[month].push(record);
+        }
+      }
+      
+      // 保存数据
+      saveData();
+      
+      // 重新渲染
+      renderRecords();
+      updateStatistics();
+      
+      // 关闭模态框
+      closeRecordModal();
+      
+      // 显示提示
+      showToast(`${id ? '编辑' : '添加'}记录成功`, 'success');
+    }
+
+    // 计算加入天数
+    function calculateDaysInClan() {
+      const joinDate = elements.joinDateInput.value;
+      if (!joinDate) {
+        elements.daysInClanInput.value = '';
+        return;
+      }
+      
+      const join = new Date(joinDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const diffTime = Math.abs(today - join);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      elements.daysInClanInput.value = diffDays;
+    }
+
+    // 计算得分
+    function calculateScore() {
+      const leagueTotal = elements.leagueTotalInput.value ? Number(elements.leagueTotalInput.value) : 0;
+      const stars = elements.starsInput.value ? Number(elements.starsInput.value) : 0;
+      const position = elements.positionSelect.value;
+      
+      let score = 0;
+      
+      if (leagueTotal > 0 && stars > 0) {
+        score = stars / leagueTotal;
+      }
+      
+      // 根据职位加分
+      switch (position) {
+        case '首领':
+          score += 2;
+          break;
+        case '副首领':
+          score += 1;
+          break;
+        case '长老':
+          score += 0.5;
+          break;
+      }
+      
+      // 保留四位小数
+      elements.scoreInput.value = score.toFixed(4);
+    }
+
+    // 获取当前视图的记录
+    function getCurrentRecords() {
+      if (dataStore.currentView === 'root') {
+        return [...dataStore.rootRecords];
+      } else {
+        return [...(dataStore.monthRecords[dataStore.currentMonth] || [])];
+      }
+    }
+
+    // 过滤记录
+    function filterRecords(records) {
+      if (!dataStore.searchQuery) return records;
+      
+      return records.filter(record => {
+        const searchStr = dataStore.searchQuery.toLowerCase();
+        return (record.name && record.name.toLowerCase().includes(searchStr)) ||
+               (record.tag && record.tag.toLowerCase().includes(searchStr)) ||
+               (record.position && record.position.toLowerCase().includes(searchStr)) ||
+               (record.evaluation && record.evaluation.toLowerCase().includes(searchStr));
+      });
+    }
+
+    // 排序记录
+    function sortRecords(records) {
+      const sorted = [...records];
+      const positionPriority = { '首领': 4, '副首领': 3, '长老': 2, '成员': 1, '': 0 };
+      const evaluationPriority = { '实力派': 4, '优质': 3, '中坚': 2, '潜力股': 1, '': 0 };
+      
+      switch (dataStore.currentSort) {
+        case 'prosperity':
+          sorted.sort((a, b) => {
+            // 按繁荣值降序
+            if (a.prosperity !== b.prosperity) {
+              return (b.prosperity || 0) - (a.prosperity || 0);
+            }
+            // 繁荣值相同按上个月得分降序
+            return (b.lastMonthScore || 0) - (a.lastMonthScore || 0);
+          });
+          break;
+          
+        case 'score':
+          sorted.sort((a, b) => {
+            // 按得分降序
+            if (a.score !== b.score) {
+              return (b.score || 0) - (a.score || 0);
+            }
+            // 得分相同按摧毁率降序
+            return (b.destructionRate || 0) - (a.destructionRate || 0);
+          });
+          break;
+          
+        case 'position':
+          sorted.sort((a, b) => {
+            // 按职位优先级降序
+            if (positionPriority[a.position] !== positionPriority[b.position]) {
+              return positionPriority[b.position] - positionPriority[a.position];
+            }
+            // 职位相同按繁荣值降序
+            return (b.prosperity || 0) - (a.prosperity || 0);
+          });
+          break;
+          
+        case 'evaluation':
+          sorted.sort((a, b) => {
+            // 按评测优先级降序
+            if (evaluationPriority[a.evaluation] !== evaluationPriority[b.evaluation]) {
+              return evaluationPriority[b.evaluation] - evaluationPriority[a.evaluation];
+            }
+            // 评测相同按繁荣值降序
+            return (b.prosperity || 0) - (a.prosperity || 0);
+          });
+          break;
+      }
+      
+      return sorted;
+    }
+
+    // 分页处理
+    function paginateRecords(records) {
+      const startIndex = (dataStore.currentPage - 1) * dataStore.itemsPerPage;
+      const endIndex = startIndex + dataStore.itemsPerPage;
+      return records.slice(startIndex, endIndex);
+    }
+
+    // 渲染记录表格
+    function renderRecords() {
+      let records = getCurrentRecords();
+      records = filterRecords(records);
+      records = sortRecords(records);
+      
+      const totalRecords = records.length;
+      const paginatedRecords = paginateRecords(records);
+      
+      // 更新分页信息
+      updatePagination(totalRecords);
+      
+      // 更新统计信息
+      elements.totalCount.textContent = totalRecords;
+      elements.shownCount.textContent = paginatedRecords.length;
+      
+      // 清空表格
+      elements.recordsTableBody.innerHTML = '';
+      
+      if (paginatedRecords.length === 0) {
+        elements.recordsTableBody.innerHTML = `
+          <tr>
+            <td colspan="10" class="px-4 py-8 text-center text-gray-500">
+              <div class="flex flex-col items-center">
+                <i class="fa fa-folder-open-o text-4xl mb-2 text-gray-300"></i>
+                <p>没有找到匹配的记录</p>
+              </div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+      
+      // 添加记录行
+      paginatedRecords.forEach(record => {
+        const row = document.createElement('tr');
+        row.className = 'border-b border-gray-200 hover:bg-gray-50 transition-colors';
+        row.dataset.id = record.id;
+        
+        const isSelected = dataStore.selectedRecords.has(record.id);
+        
+        row.innerHTML = `
+          <td class="px-4 py-3">
+            <input type="checkbox" class="record-select rounded text-primary focus:ring-primary" ${isSelected ? 'checked' : ''} data-id="${record.id}">
+          </td>
+          <td class="px-4 py-3">
+            <div class="font-medium">${record.name || '-'}</div>
+            ${record.tag ? `<div class="text-xs text-gray-500">${record.tag}</div>` : ''}
+          </td>
+          <td class="px-4 py-3">
+            <span class="px-2 py-1 rounded-full text-xs ${getPositionClass(record.position)}">
+              ${record.position || '-'}
+            </span>
+          </td>
+          <td class="px-4 py-3">${record.prosperity || '-'}</td>
+          <td class="px-4 py-3">${record.score ? record.score.toFixed(4) : '-'}</td>
+          <td class="px-4 py-3">${record.stars || '-'}</td>
+          <td class="px-4 py-3">${record.destructionRate ? `${record.destructionRate}%` : '-'}</td>
+          <td class="px-4 py-3">
+            <span class="px-2 py-1 rounded-full text-xs ${getEvaluationClass(record.evaluation)}">
+              ${record.evaluation || '-'}
+            </span>
+          </td>
+          <td class="px-4 py-3">${record.daysInClan ? `${record.daysInClan}天` : '-'}</td>
+          <td class="px-4 py-3">
+            <div class="flex space-x-1">
+              <button class="edit-record p-1.5 text-gray-600 hover:text-primary" title="编辑">
+                <i class="fa fa-pencil"></i>
+              </button>
+              <button class="export-single p-1.5 text-gray-600 hover:text-info" title="导出">
+                <i class="fa fa-download"></i>
+              </button>
+              <button class="delete-record p-1.5 text-gray-600 hover:text-danger" title="删除">
+                <i class="fa fa-trash"></i>
+              </button>
+            </div>
+          </td>
+        `;
+        
+        elements.recordsTableBody.appendChild(row);
+      });
+      
+      // 绑定行内按钮事件
+      document.querySelectorAll('.edit-record').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.closest('tr').dataset.id;
+          openEditRecordModal(id);
+        });
+      });
+      
+      document.querySelectorAll('.export-single').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.closest('tr').dataset.id;
+          dataStore.selectedRecords.clear();
+          dataStore.selectedRecords.add(id);
+          openDownloadModal('selected');
+        });
+      });
+      
+      document.querySelectorAll('.delete-record').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.closest('tr').dataset.id;
+          dataStore.selectedRecords.clear();
+          dataStore.selectedRecords.add(id);
+          openDeleteModal();
+        });
+      });
+      
+      // 绑定选择框事件
+      document.querySelectorAll('.record-select').forEach(checkbox => {
+        checkbox.addEventListener('change', (e) => {
+          const id = e.target.dataset.id;
+          if (e.target.checked) {
+            dataStore.selectedRecords.add(id);
+          } else {
+            dataStore.selectedRecords.delete(id);
+          }
+          elements.selectAllCheckbox.checked = 
+            dataStore.selectedRecords.size === paginatedRecords.length && 
+            paginatedRecords.length > 0;
+          updateExportButton();
+        });
+      });
+      
+      updateExportButton();
+    }
+
+    // 获取职位样式类
+    function getPositionClass(position) {
+      switch (position) {
+        case '首领': return 'bg-red-100 text-red-800';
+        case '副首领': return 'bg-orange-100 text-orange-800';
+        case '长老': return 'bg-blue-100 text-blue-800';
+        case '成员': return 'bg-gray-100 text-gray-800';
+        default: return 'bg-gray-100 text-gray-500';
+      }
+    }
+
+    // 获取评测样式类
+    function getEvaluationClass(evaluation) {
+      switch (evaluation) {
+        case '实力派': return 'bg-green-100 text-green-800';
+        case '优质': return 'bg-blue-100 text-blue-800';
+        case '中坚': return 'bg-purple-100 text-purple-800';
+        case '潜力股': return 'bg-yellow-100 text-yellow-800';
+        default: return 'bg-gray-100 text-gray-500';
+      }
+    }
+
+    // 更新分页控件
+    function updatePagination(totalRecords) {
+      const totalPages = Math.ceil(totalRecords / dataStore.itemsPerPage);
+      
+      elements.pageInfo.textContent = `第 ${dataStore.currentPage} 页，共 ${totalPages} 页`;
+      
+      elements.prevPageBtn.disabled = dataStore.currentPage <= 1;
+      elements.nextPageBtn.disabled = dataStore.currentPage >= totalPages;
+    }
+
+    // 上一页
+    function goToPrevPage() {
+      if (dataStore.currentPage > 1) {
+        dataStore.currentPage--;
+        renderRecords();
+      }
+    }
+
+    // 下一页
+    function goToNextPage() {
+      const records = getCurrentRecords();
+      const filtered = filterRecords(records);
+      const totalPages = Math.ceil(filtered.length / dataStore.itemsPerPage);
+      
+      if (dataStore.currentPage < totalPages) {
+        dataStore.currentPage++;
+        renderRecords();
+      }
+    }
+
+    // 处理全选
+    function handleSelectAll(e) {
+      const records = getCurrentRecords();
+      const filtered = filterRecords(records);
+      const paginated = paginateRecords(filtered);
+      
+      dataStore.selectedRecords.clear();
+      
+      if (e.target.checked) {
+        paginated.forEach(record => {
+          dataStore.selectedRecords.add(record.id);
+        });
+      }
+      
+      renderRecords();
+      updateExportButton();
+    }
+
+    // 更新导出按钮状态
+    function updateExportButton() {
+      const records = getCurrentRecords();
+      const filtered = filterRecords(records);
+      elements.exportBtn.disabled = filtered.length === 0;
+    }
+
+    // 打开下载模态框
+    function openDownloadModal(type) {
+      elements.downloadModal.dataset.type = type;
+      elements.downloadModal.classList.remove('hidden');
+      elements.downloadFormat = null;
+      
+      // 重置格式选择
+      document.querySelectorAll('#download-modal [data-format]').forEach(item => {
+        item.classList.remove('border-primary', 'bg-primary/5');
+        item.classList.add('border-gray-200');
+      });
+    }
+
+    // 关闭下载模态框
+    function closeDownloadModal() {
+      elements.downloadModal.classList.add('hidden');
+    }
+
+    // 处理下载
+    function handleDownload() {
+      if (!elements.downloadFormat) {
+        showToast('请选择下载格式', 'warning');
+        return;
+      }
+      
+      const type = elements.downloadModal.dataset.type;
+      let records = getCurrentRecords();
+      records = filterRecords(records);
+      
+      // 筛选要下载的记录
+      if (type === 'selected') {
+        records = records.filter(record => dataStore.selectedRecords.has(record.id));
+      }
+      
+      // 转换数据并下载
+      let content = '';
+      let mimeType = '';
+      let extension = elements.downloadFormat;
+      
+      switch (elements.downloadFormat) {
+        case 'json':
+          content = JSON.stringify(records, null, 2);
+          mimeType = 'application/json';
+          break;
+        case 'csv':
+          content = convertToCSV(records);
+          mimeType = 'text/csv';
+          break;
+        case 'txt':
+          content = convertToTXT(records);
+          mimeType = 'text/plain';
+          break;
+      }
+      
+      // 创建下载链接
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${dataStore.currentView === 'root' ? '根记录' : dataStore.currentMonth}数据.${extension}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      // 关闭模态框
+      closeDownloadModal();
+      
+      // 显示提示
+      showToast(`成功下载 ${records.length} 条记录`, 'success');
+    }
+
+    // 转换为CSV格式
+    function convertToCSV(records) {
+      const headers = [
+        '名字', '标签', '职位', '评测', '繁荣', '历史最高奖杯数',
+        '加入起始时间', '加入累计时间(天)', '当月联赛总次数',
+        '实际次数', '总星数', '摧毁率(%)', '得分', '是否在部落'
+      ];
+      
+      const rows = [headers.join(',')];
+      
+      records.forEach(record => {
+        const row = [
+          record.name || '',
+          record.tag || '',
+          record.position || '',
+          record.evaluation || '',
+          record.prosperity || '',
+          record.maxTrophies || '',
+          record.joinDate || '',
+          record.daysInClan || '',
+          record.leagueTotal || '',
+          record.leagueActual || '',
+          record.stars || '',
+          record.destructionRate || '',
+          record.score || '',
+          record.inClan || ''
+        ];
+        
+        // 处理包含逗号的字段
+        rows.push(row.map(field => 
+          typeof field === 'string' && field.includes(',') ? `"${field}"` : field
+        ).join(','));
+      });
+      
+      return rows.join('\n');
+    }
+
+    // 转换为TXT格式
+    function convertToTXT(records) {
+      let text = `${dataStore.currentView === 'root' ? '根记录' : dataStore.currentMonth} 数据\n`;
+      text += '='.repeat(80) + '\n';
+      
+      records.forEach((record, index) => {
+        text += `【${index + 1}】${record.name || '未知'}\n`;
+        text += `职位: ${record.position || '-'}\t评测: ${record.evaluation || '-'}\t繁荣: ${record.prosperity || '-'}\n`;
+        text += `得分: ${record.score ? record.score.toFixed(4) : '-'}\t摧毁率: ${record.destructionRate || '-'}%\t总星数: ${record.stars || '-'}\n`;
+        text += `加入时间: ${record.daysInClan ? `${record.daysInClan}天` : '-'}\t是否在部落: ${record.inClan || '是'}\n`;
+        text += '-'.repeat(80) + '\n';
+      });
+      
+      return text;
+    }
+
+    // 打开导入模态框
+    function openImportModal(type) {
+      elements.importModalTitle.textContent = type === 'single' ? '单个导入' : '批量导入';
+      elements.importModal.dataset.type = type;
+      clearFileSelection();
+      elements.importModal.classList.remove('hidden');
+    }
+
+    // 关闭导入模态框
+    function closeImportModal() {
+      elements.importModal.classList.add('hidden');
+    }
+
+    // 处理文件选择
+    function handleFileSelection(e) {
+      const file = e.target.files[0];
+      if (file) {
+        elements.fileName.textContent = file.name;
+        elements.fileInfo.classList.remove('hidden');
+        elements.confirmImportBtn.disabled = false;
+      } else {
+        clearFileSelection();
+      }
+    }
+
+    // 清除文件选择
+    function clearFileSelection() {
+      elements.importFileInput.value = '';
+      elements.fileInfo.classList.add('hidden');
+      elements.fileName.textContent = '';
+      elements.confirmImportBtn.disabled = true;
+    }
+
+    // 处理导入
+    function handleImport() {
+      const file = elements.importFileInput.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        try {
+          let records = [];
+          const fileName = file.name.toLowerCase();
+          
+          if (fileName.endsWith('.json')) {
+            records = JSON.parse(e.target.result);
+            if (!Array.isArray(records)) {
+              records = [records]; // 支持单个记录的JSON文件
+            }
+          } else if (fileName.endsWith('.csv') || fileName.endsWith('.txt')) {
+            records = parseCSV(e.target.result);
+          } else {
+            throw new Error('不支持的文件格式');
+          }
+          
+          // 验证记录格式
+          const validRecords = [];
+          records.forEach(record => {
+            if (isValidRecord(record)) {
+              // 为每条记录生成新ID
+              const newRecord = { ...record, id: generateId(), month: dataStore.currentMonth };
+              validRecords.push(newRecord);
+            }
+          });
+          
+          // 导入记录
+          if (validRecords.length > 0) {
+            if (dataStore.currentView === 'root') {
+              dataStore.rootRecords.push(...validRecords);
+            } else {
+              if (!dataStore.monthRecords[dataStore.currentMonth]) {
+                dataStore.monthRecords[dataStore.currentMonth] = [];
+              }
+              dataStore.monthRecords[dataStore.currentMonth].push(...validRecords);
+            }
+            
+            saveData();
+            renderRecords();
+            updateStatistics();
+            showToast(`成功导入 ${validRecords.length} 条记录`, 'success');
+          } else {
+            showToast('未找到有效的记录', 'warning');
+          }
+          
+          closeImportModal();
+        } catch (error) {
+          showToast(`导入失败: ${error.message}`, 'error');
+          console.error('Import error:', error);
+        }
+      };
+      
+      reader.readAsText(file);
+    }
+
+    // 解析CSV文件
+    function parseCSV(text) {
+      const lines = text.split('\n').map(line => line.trim()).filter(line => line);
+      if (lines.length < 2) return [];
+      
+      // 假设第一行为标题行
+      const headers = lines[0].split(',').map(header => header.trim());
+      const records = [];
+      
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(value => value.trim().replace(/^"/, '').replace(/"$/, ''));
+        const record = {};
+        
+        // 映射CSV列到记录字段
+        headers.forEach((header, index) => {
+          const value = values[index] || '';
+          
+          switch (header) {
+            case '名字':
+              record.name = value;
+              break;
+            case '标签':
+              record.tag = value;
+              break;
+            case '职位':
+              record.position = value;
+              break;
+            case '评测':
+              record.evaluation = value;
+              break;
+            case '繁荣':
+              record.prosperity = value ? Number(value) : null;
+              break;
+            case '历史最高奖杯数':
+              record.maxTrophies = value ? Number(value) : null;
+              break;
+            case '加入起始时间':
+              record.joinDate = value;
+              break;
+            case '加入累计时间(天)':
+              record.daysInClan = value ? Number(value) : null;
+              break;
+            case '当月联赛总次数':
+              record.leagueTotal = value ? Number(value) : null;
+              break;
+            case '实际次数':
+              record.leagueActual = value ? Number(value) : null;
+              break;
+            case '总星数':
+              record.stars = value ? Number(value) : null;
+              break;
+            case '摧毁率(%)':
+              record.destructionRate = value ? Number(value) : null;
+              break;
+            case '得分':
+              record.score = value ? Number(value) : null;
+              break;
+            case '是否在部落':
+              record.inClan = value;
+              break;
+          }
+        });
+        
+        records.push(record);
+      }
+      
+      return records;
+    }
+
+    // 验证记录是否有效
+    function isValidRecord(record) {
+      // 至少需要有名字
+      return !!record.name;
+    }
+
+    // 打开从根记录复制模态框
+    function openCopyRootModal() {
+      elements.copyRootModal.classList.remove('hidden');
+      elements.rootSearchInput.value = '';
+      renderRootRecordsList();
+    }
+
+    // 关闭从根记录复制模态框
+    function closeCopyRootModal() {
+      elements.copyRootModal.classList.add('hidden');
+    }
+
+    // 渲染根记录列表
+    function renderRootRecordsList() {
+      const searchQuery = elements.rootSearchInput.value.toLowerCase();
+      let rootRecords = [...dataStore.rootRecords];
+      
+      // 过滤
+      if (searchQuery) {
+        rootRecords = rootRecords.filter(record => 
+          (record.name && record.name.toLowerCase().includes(searchQuery)) ||
+          (record.tag && record.tag.toLowerCase().includes(searchQuery)) ||
+          (record.position && record.position.toLowerCase().includes(searchQuery))
+        );
+      }
+      
+      // 排序
+      rootRecords.sort((a, b) => {
+        const positionPriority = { '首领': 4, '副首领': 3, '长老': 2, '成员': 1, '': 0 };
+        if (positionPriority[a.position] !== positionPriority[b.position]) {
+          return positionPriority[b.position] - positionPriority[a.position];
+        }
+        return (b.prosperity || 0) - (a.prosperity || 0);
+      });
+      
+      // 清空列表
+      elements.rootRecordsList.innerHTML = '';
+      
+      if (rootRecords.length === 0) {
+        elements.rootRecordsList.innerHTML = `
+          <div class="text-center text-gray-500 py-8">
+            <p>没有找到匹配的根记录</p>
+          </div>
+        `;
+        return;
+      }
+      
+      // 添加根记录项
+      rootRecords.forEach(record => {
+        const item = document.createElement('div');
+        item.className = 'flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors';
+        
+        // 检查是否已在当前月份记录中
+        const currentMonthRecords = dataStore.monthRecords[dataStore.currentMonth] || [];
+        const isAlreadyAdded = currentMonthRecords.some(r => r.name === record.name);
+        
+        item.innerHTML = `
+          <input type="checkbox" class="root-record-select mr-3 rounded text-primary focus:ring-primary" 
+                 data-id="${record.id}" ${isAlreadyAdded ? 'disabled title="已在当前月份记录中"' : ''}>
+          <div class="flex-grow">
+            <div class="font-medium">${record.name}</div>
+            <div class="text-xs text-gray-500">
+              ${record.position ? `<span class="mr-2">${record.position}</span>` : ''}
+              ${record.prosperity ? `<span>繁荣: ${record.prosperity}</span>` : ''}
+            </div>
+          </div>
+        `;
+        
+        elements.rootRecordsList.appendChild(item);
+      });
+    }
+
+    // 全选根记录
+    function selectAllRootRecords() {
+      document.querySelectorAll('.root-record-select:not(:disabled)').forEach(checkbox => {
+        checkbox.checked = true;
+      });
+    }
+
+    // 取消全选根记录
+    function deselectAllRootRecords() {
+      document.querySelectorAll('.root-record-select').forEach(checkbox => {
+        checkbox.checked = false;
+      });
+    }
+
+    // 处理从根记录复制
+    function handleCopyFromRoot() {
+      const selectedIds = Array.from(document.querySelectorAll('.root-record-select:checked:not(:disabled)'))
+        .map(checkbox => checkbox.dataset.id);
+      
+      if (selectedIds.length === 0) {
+        showToast('请选择要复制的根记录', 'warning');
+        return;
+      }
+      
+      // 获取选中的根记录
+      const selectedRecords = dataStore.rootRecords.filter(record => 
+        selectedIds.includes(record.id)
+      );
+      
+      // 复制到当前月份记录（生成新ID）
+      if (!dataStore.monthRecords[dataStore.currentMonth]) {
+        dataStore.monthRecords[dataStore.currentMonth] = [];
+      }
+      
+      const newRecords = selectedRecords.map(record => ({
+        ...record,
+        id: generateId(),
+        month: dataStore.currentMonth
+      }));
+      
+      dataStore.monthRecords[dataStore.currentMonth].push(...newRecords);
+      
+      // 保存并刷新
+      saveData();
+      renderRecords();
+      updateStatistics();
+      
+      // 关闭模态框
+      closeCopyRootModal();
+      
+      // 显示提示
+      showToast(`成功复制 ${newRecords.length} 条记录到当前月份`, 'success');
+    }
+
+    // 打开删除模态框
+    function openDeleteModal() {
+      elements.deleteCount.textContent = dataStore.selectedRecords.size;
+      elements.deleteModal.classList.remove('hidden');
+    }
+
+    // 关闭删除模态框
+    function closeDeleteModal() {
+      elements.deleteModal.classList.add('hidden');
+    }
+
+    // 处理删除记录
+    function handleDeleteRecords() {
+      const selectedIds = Array.from(dataStore.selectedRecords);
+      
+      if (selectedIds.length === 0) {
+        closeDeleteModal();
+        return;
+      }
+      
+      // 从当前视图中删除记录
+      if (dataStore.currentView === 'root') {
+        dataStore.rootRecords = dataStore.rootRecords.filter(record => 
+          !selectedIds.includes(record.id)
+        );
+      } else {
+        dataStore.monthRecords[dataStore.currentMonth] = 
+          (dataStore.monthRecords[dataStore.currentMonth] || []).filter(record => 
+            !selectedIds.includes(record.id)
+          );
+      }
+      
+      // 保存并刷新
+      saveData();
+      dataStore.selectedRecords.clear();
+      elements.selectAllCheckbox.checked = false;
+      renderRecords();
+      updateStatistics();
+      
+      // 关闭模态框
+      closeDeleteModal();
+      
+      // 显示提示
+      showToast(`成功删除 ${selectedIds.length} 条记录`, 'success');
+    }
+
+    // 更新统计信息
+    function updateStatistics() {
+      const records = getCurrentRecords();
+      const filtered = filterRecords(records);
+      
+      // 总记录数
+      elements.totalRecords.textContent = filtered.length;
+      
+      // 平均得分
+      const scoreSum = filtered.reduce((sum, record) => sum + (record.score || 0), 0);
+      const avgScore = filtered.length > 0 ? scoreSum / filtered.length : 0;
+      elements.avgScore.textContent = avgScore.toFixed(2);
+      
+      // 首领/副首领数量
+      const leadersCount = filtered.filter(record => 
+        record.position === '首领' || record.position === '副首领'
+      ).length;
+      elements.leadersCount.textContent = leadersCount;
+      
+      // 平均摧毁率
+      const destructionSum = filtered.reduce((sum, record) => sum + (record.destructionRate || 0), 0);
+      const avgDestruction = filtered.length > 0 ? destructionSum / filtered.length : 0;
+      elements.avgDestruction.textContent = `${avgDestruction.toFixed(1)}%`;
+    }
+
+    // 生成唯一ID
+    function generateId() {
+      return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+    }
+
+    // 显示提示信息
+    function showToast(message, type = 'info') {
+      elements.toastMessage.textContent = message;
+      
+      // 设置图标和样式
+      switch (type) {
+        case 'success':
+          elements.toastIcon.className = 'fa fa-check-circle text-green-500';
+          elements.toast.className = 'fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg bg-green-50 text-green-800 transform translate-y-0 opacity-100 transition-all duration-300 flex items-center z-50';
+          break;
+        case 'error':
+          elements.toastIcon.className = 'fa fa-exclamation-circle text-red-500';
+          elements.toast.className = 'fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg bg-red-50 text-red-800 transform translate-y-0 opacity-100 transition-all duration-300 flex items-center z-50';
+          break;
+        case 'warning':
+          elements.toastIcon.className = 'fa fa-exclamation-triangle text-yellow-500';
+          elements.toast.className = 'fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg bg-yellow-50 text-yellow-800 transform translate-y-0 opacity-100 transition-all duration-300 flex items-center z-50';
+          break;
+        default:
+          elements.toastIcon.className = 'fa fa-info-circle text-blue-500';
+          elements.toast.className = 'fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg bg-blue-50 text-blue-800 transform translate-y-0 opacity-100 transition-all duration-300 flex items-center z-50';
+      }
+      
+      // 3秒后隐藏
+      setTimeout(() => {
+        elements.toast.className = 'fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 flex items-center z-50';
+      }, 3000);
+    }
+
+    // 初始化应用
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
